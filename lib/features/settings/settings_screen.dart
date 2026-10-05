@@ -14,20 +14,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
   String _selectedLanguage = 'ru';
-  String _selectedVoice = 'alloy';
-  int _selectedSampleRate = 24000;
   bool _isLoading = true;
-
-  final List<Map<String, String>> _voices = const [
-    {'id': 'alloy', 'name': 'Alloy'},
-    {'id': 'echo', 'name': 'Echo'},
-    {'id': 'shimmer', 'name': 'Shimmer'},
-    {'id': 'ash', 'name': 'Ash'},
-    {'id': 'ballad', 'name': 'Ballad'},
-    {'id': 'coral', 'name': 'Coral'},
-    {'id': 'sage', 'name': 'Sage'},
-    {'id': 'verse', 'name': 'Verse'},
-  ];
 
   final List<Map<String, String>> _languages = const [
     {'code': 'ru', 'name': 'Russisch (ru)'},
@@ -46,16 +33,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final apiKey = await widget.settingsRepository.getApiKey();
     final language = await widget.settingsRepository.getTargetLanguage();
-    final voice = await widget.settingsRepository.getVoice();
-    final sampleRate = await widget.settingsRepository.getSampleRate();
 
     setState(() {
       if (apiKey != null) {
         _apiKeyController.text = apiKey;
       }
       _selectedLanguage = language;
-      _selectedVoice = voice;
-      _selectedSampleRate = sampleRate;
       _isLoading = false;
     });
   }
@@ -63,8 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
-    await widget.settingsRepository.setVoice(_selectedVoice);
-    await widget.settingsRepository.setSampleRate(_selectedSampleRate);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,52 +122,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (val != null) {
                         setState(() {
                           _selectedLanguage = val;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedVoice,
-                    decoration: const InputDecoration(
-                      labelText: 'Synthese-Stimme',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _voices.map((v) {
-                      return DropdownMenuItem<String>(
-                        value: v['id'],
-                        child: Text(v['name']!),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedVoice = val;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    initialValue: _selectedSampleRate,
-                    decoration: const InputDecoration(
-                      labelText: 'Audio Sampling-Rate',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 24000,
-                        child: Text('24 kHz (Standard OpenAI)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 16000,
-                        child: Text('16 kHz'),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedSampleRate = val;
                         });
                       }
                     },

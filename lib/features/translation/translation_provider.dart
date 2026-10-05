@@ -13,12 +13,14 @@ class TranslationProvider extends ChangeNotifier {
   StreamSubscription? _audioRecordSubscription;
   StreamSubscription? _audioPlaybackSubscription;
   StreamSubscription? _transcriptSubscription;
+  StreamSubscription? _sourceTranscriptSubscription;
   StreamSubscription? _networkStateSubscription;
   StreamSubscription? _audioLevelSubscription;
 
   bool _isTranslating = false;
   String _statusMessage = 'Inaktiv';
   String _targetTranscript = '';
+  String _sourceTranscript = '';
   double _audioLevel = 0.0;
   TranslationConnectionState _connectionState =
       TranslationConnectionState.disconnected;
@@ -26,6 +28,7 @@ class TranslationProvider extends ChangeNotifier {
   bool get isTranslating => _isTranslating;
   String get statusMessage => _statusMessage;
   String get targetTranscript => _targetTranscript;
+  String get sourceTranscript => _sourceTranscript;
   double get audioLevel => _audioLevel;
   TranslationConnectionState get connectionState => _connectionState;
 
@@ -66,13 +69,19 @@ class TranslationProvider extends ChangeNotifier {
     });
 
     _audioPlaybackSubscription =
-        translationService.onAudioDelta.listen((pcmBytes) {
-      audioService.playAudioDelta(pcmBytes);
+        translationService.onAudioDelta.listen((delta) {
+      audioService.playAudioDelta(delta.bytes, sampleRate: delta.sampleRate);
     });
 
     _transcriptSubscription =
         translationService.onTranscriptDelta.listen((textDelta) {
       _targetTranscript += textDelta;
+      notifyListeners();
+    });
+
+    _sourceTranscriptSubscription =
+        translationService.onSourceTranscriptDelta.listen((textDelta) {
+      _sourceTranscript += textDelta;
       notifyListeners();
     });
 
@@ -91,10 +100,9 @@ class TranslationProvider extends ChangeNotifier {
     }
 
     final targetLanguage = await settingsRepository.getTargetLanguage();
-    final voice = await settingsRepository.getVoice();
-    final sampleRate = await settingsRepository.getSampleRate();
 
     _targetTranscript = '';
+    _sourceTranscript = '';
     _isTranslating = true;
     _statusMessage = 'Initialisiere...';
     notifyListeners();
@@ -106,11 +114,10 @@ class TranslationProvider extends ChangeNotifier {
       await translationService.connect(
         apiKey: apiKey.trim(),
         targetLanguage: targetLanguage,
-        voice: voice,
       );
 
       // Start audio recording and stream chunks to network
-      await audioService.startRecording(sampleRate: sampleRate);
+      await audioService.startRecording();
       _audioRecordSubscription = audioService.audioStream.listen((chunk) {
         translationService.sendAudioChunk(chunk);
       });
@@ -151,6 +158,7 @@ class TranslationProvider extends ChangeNotifier {
 
   void clearTranscript() {
     _targetTranscript = '';
+    _sourceTranscript = '';
     notifyListeners();
   }
 
@@ -159,6 +167,7 @@ class TranslationProvider extends ChangeNotifier {
     _audioRecordSubscription?.cancel();
     _audioPlaybackSubscription?.cancel();
     _transcriptSubscription?.cancel();
+    _sourceTranscriptSubscription?.cancel();
     _networkStateSubscription?.cancel();
     _audioLevelSubscription?.cancel();
     _enableWakeLock(false);

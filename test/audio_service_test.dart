@@ -65,6 +65,8 @@ void main() {
 
       await expectLater(service.playAudioDelta(chunk1), completes);
       await expectLater(service.playAudioDelta(chunk2), completes);
+      await expectLater(
+          service.playAudioDelta(chunk1, sampleRate: 16000), completes);
       await expectLater(service.stopPlayback(), completes);
       await expectLater(service.dispose(), completes);
     });

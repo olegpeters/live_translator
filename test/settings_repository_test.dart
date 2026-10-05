@@ -1,0 +1,27 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:live_translator/core/audio/audio_service.dart';
+import 'package:live_translator/core/storage/settings_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('SettingsRepository', () {
+    test('getSampleRate returns 24000 by default', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      expect(await repository.getSampleRate(), 24000);
+    });
+
+    test('getSampleRate ignores a previously stored 16 kHz value', () async {
+      SharedPreferences.setMockInitialValues({'input_sample_rate': 16000});
+      final repository = SettingsRepository();
+      expect(await repository.getSampleRate(), 24000);
+    });
+
+    test('recording sample rate matches the API requirement', () {
+      expect(AudioService.inputSampleRate, 24000);
+      expect(SettingsRepository.inputSampleRate, 24000);
+    });
+  });
+}

@@ -4,8 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsRepository {
   static const String _keyApiKey = 'openai_api_key';
   static const String _keyTargetLanguage = 'target_language';
-  static const String _keyVoice = 'selected_voice';
-  static const String _keySampleRate = 'input_sample_rate';
+
+  /// The OpenAI realtime translation API only accepts 24 kHz PCM16 mono input.
+  static const int inputSampleRate = 24000;
 
   final FlutterSecureStorage _secureStorage;
   SharedPreferences? _prefs;
@@ -35,23 +36,9 @@ class SettingsRepository {
     await _prefs?.setString(_keyTargetLanguage, languageCode);
   }
 
-  Future<String> getVoice() async {
-    await init();
-    return _prefs?.getString(_keyVoice) ?? 'alloy';
-  }
-
-  Future<void> setVoice(String voice) async {
-    await init();
-    await _prefs?.setString(_keyVoice, voice);
-  }
-
+  /// Always returns 24000. Previously stored values (e.g. 16 kHz) are ignored,
+  /// because the audio is sent as 24 kHz PCM16 without resampling.
   Future<int> getSampleRate() async {
-    await init();
-    return _prefs?.getInt(_keySampleRate) ?? 24000;
-  }
-
-  Future<void> setSampleRate(int sampleRate) async {
-    await init();
-    await _prefs?.setInt(_keySampleRate, sampleRate);
+    return inputSampleRate;
   }
 }

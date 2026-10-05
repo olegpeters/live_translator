@@ -63,6 +63,13 @@ Uint8List pcmToWav(
   return wavBytes;
 }
 
+class _PcmChunk {
+  final Uint8List bytes;
+  final int sampleRate;
+
+  const _PcmChunk(this.bytes, this.sampleRate);
+}
+
 class AudioService {
   final AudioRecorder _recorder;
   final AudioPlayer _audioPlayer;
@@ -71,8 +78,8 @@ class AudioService {
   final _audioStreamController = StreamController<Uint8List>.broadcast();
   final _audioLevelController = StreamController<double>.broadcast();
 
-  List<Uint8List>? _pcmChunkQueue;
-  List<Uint8List> get _queue => _pcmChunkQueue ??= <Uint8List>[];
+  List<_PcmChunk>? _pcmChunkQueue;
+  List<_PcmChunk> get _queue => _pcmChunkQueue ??= <_PcmChunk>[];
   bool? _isPlaying;
   bool get _playing => _isPlaying ?? false;
   set _playing(bool value) => _isPlaying = value;
@@ -96,7 +103,10 @@ class AudioService {
     return result.isGranted;
   }
 
-  Future<void> startRecording({int sampleRate = 24000}) async {
+  /// The OpenAI realtime translation API requires 24 kHz PCM16 mono input.
+  static const int inputSampleRate = 24000;
+
+  Future<void> startRecording() async {
     if (isRecording) return;
 
     final hasPermission = await checkAndRequestPermissions();
@@ -106,8 +116,11 @@ class AudioService {
 
     final config = RecordConfig(
       encoder: AudioEncoder.pcm16bits,
-      sampleRate: sampleRate,
+      sampleRate: inputSampleRate,
       numChannels: 1,
+      echoCancel: true,
+      noiseSuppress: true,
+      autoGain: true,
     );
 
     final stream = await _recorder.startStream(config);
@@ -143,9 +156,10 @@ class AudioService {
     }
   }
 
-  Future<void> playAudioDelta(Uint8List pcmBytes) async {
+  Future<void> playAudioDelta(Uint8List pcmBytes,
+      {int sampleRate = inputSampleRate}) async {
     if (pcmBytes.isEmpty) return;
-    _queue.add(pcmBytes);
+    _queue.add(_PcmChunk(pcmBytes, sampleRate));
     _startPlaybackLoop();
   }
 
@@ -160,8 +174,12 @@ class AudioService {
       if (_queue.isEmpty) {
         break;
       }
-      final chunks = List<Uint8List>.from(_queue);
-      _queue.clear();
+      // Batch consecutive chunks that share the same sample rate.
+      final int sampleRate = _queue.first.sampleRate;
+      final chunks = <Uint8List>[];
+      while (_queue.isNotEmpty && _queue.first.sampleRate == sampleRate) {
+        chunks.add(_queue.removeAt(0).bytes);
+      }
 
       final int totalLength = chunks.fold(0, (sum, c) => sum + c.length);
       if (totalLength == 0) break;
@@ -173,7 +191,7 @@ class AudioService {
         offset += chunk.length;
       }
 
-      final wavBytes = pcmToWav(pcmBytes, sampleRate: 24000);
+      final wavBytes = pcmToWav(pcmBytes, sampleRate: sampleRate);
       final completer = Completer<void>();
       _currentPlaybackCompleter = completer;
 
@@ -187,8 +205,8 @@ class AudioService {
 
         await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
 
-        // Estimated duration: 24000 samples/sec * 2 bytes/sample = 48000 bytes/sec -> 48 bytes/ms
-        final durationMs = (pcmBytes.length / 48).ceil();
+        // Estimated duration: sampleRate samples/sec * 2 bytes/sample -> sampleRate * 2 / 1000 bytes/ms
+        final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
         await completer.future.timeout(
           Duration(milliseconds: durationMs + 800),
           onTimeout: () {

@@ -222,6 +222,41 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                // Debug: source text as recognized by the model
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Erkannter Quelltext (Deutsch) – Diagnose',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 100,
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SingleChildScrollView(
+                        reverse: true,
+                        child: Text(
+                          provider.sourceTranscript.isEmpty
+                              ? 'Hier erscheint der vom Modell erkannte deutsche Text...'
+                              : provider.sourceTranscript,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: provider.sourceTranscript.isEmpty
+                                ? Colors.grey
+                                : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           );
