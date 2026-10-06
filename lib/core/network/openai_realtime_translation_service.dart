@@ -323,7 +323,7 @@ class OpenAiRealtimeTranslationService {
           'input': {
             // Enables session.input_transcript.delta so the recognized source
             // text can be used to verify what the model actually hears.
-            'transcription': {'model': 'gpt-realtime-whisper'},
+            //'transcription': {'model': 'gpt-realtime-whisper'},
             'noise_reduction': {'type': 'near_field'},
           },
           'output': {
