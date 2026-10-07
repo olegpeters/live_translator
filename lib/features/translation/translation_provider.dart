@@ -38,6 +38,13 @@ class TranslationProvider extends ChangeNotifier {
     required this.audioService,
   }) {
     _initListeners();
+    _loadOutputGain();
+  }
+
+  void _loadOutputGain() {
+    settingsRepository.getOutputGain().then((gain) {
+      audioService.outputGain = gain;
+    });
   }
 
   void _initListeners() {
@@ -100,6 +107,7 @@ class TranslationProvider extends ChangeNotifier {
     }
 
     final targetLanguage = await settingsRepository.getTargetLanguage();
+    audioService.outputGain = await settingsRepository.getOutputGain();
 
     _targetTranscript = '';
     _sourceTranscript = '';

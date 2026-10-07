@@ -58,10 +58,28 @@ void main() {
       expect(wav.sublist(44), samplePcm);
     });
 
+    test('amplifyPcm16 amplifies PCM16 samples and clamps correctly', () {
+      final input = Int16List.fromList([1000, -2000, 20000, -20000]).buffer.asUint8List();
+
+      // Gain = 1.0 (no change)
+      expect(amplifyPcm16(input, 1.0), equals(input));
+
+      // Gain = 2.0 (doubled, with clamping on 20000 -> 32767 and -20000 -> -32768)
+      final amplified = amplifyPcm16(input, 2.0);
+      final outInt16 = ByteData.sublistView(amplified);
+
+      expect(outInt16.getInt16(0, Endian.little), 2000);
+      expect(outInt16.getInt16(2, Endian.little), -4000);
+      expect(outInt16.getInt16(4, Endian.little), 32767); // Clamped to max int16
+      expect(outInt16.getInt16(6, Endian.little), -32768); // Clamped to min int16
+    });
+
     test('AudioService handles playAudioDelta and stopPlayback cleanly', () async {
       final service = AudioService();
-      final chunk1 = Uint8List.fromList([1, 2, 3, 4]);
-      final chunk2 = Uint8List.fromList([5, 6, 7, 8]);
+      expect(service.outputGain, 2.0);
+
+      final chunk1 = Uint8List.fromList([1, 0, 2, 0]);
+      final chunk2 = Uint8List.fromList([5, 0, 6, 0]);
 
       await expectLater(service.playAudioDelta(chunk1), completes);
       await expectLater(service.playAudioDelta(chunk2), completes);
@@ -74,6 +92,7 @@ void main() {
     test('AudioService initialization and dispose lifecycle', () async {
       final service = AudioService();
       expect(service.isRecording, false);
+      expect(service.outputGain, 2.0);
       await service.stopPlayback();
       await service.dispose();
     });

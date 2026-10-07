@@ -23,5 +23,18 @@ void main() {
       expect(AudioService.inputSampleRate, 24000);
       expect(SettingsRepository.inputSampleRate, 24000);
     });
+
+    test('getOutputGain returns default output gain when not set', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      expect(await repository.getOutputGain(), 2.0);
+    });
+
+    test('setOutputGain and getOutputGain persist output gain value correctly', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      await repository.setOutputGain(2.5);
+      expect(await repository.getOutputGain(), 2.5);
+    });
   });
 }

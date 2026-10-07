@@ -63,6 +63,25 @@ Uint8List pcmToWav(
   return wavBytes;
 }
 
+/// Amplifies 16-bit PCM mono bytes by a factor of [gain].
+/// Values are clamped between -32768 and 32767 to prevent digital clipping overflow.
+Uint8List amplifyPcm16(Uint8List pcmBytes, double gain) {
+  if (gain == 1.0 || pcmBytes.isEmpty) return pcmBytes;
+
+  final ByteData byteData = ByteData.sublistView(pcmBytes);
+  final Uint8List amplifiedBytes = Uint8List(pcmBytes.length);
+  final ByteData outData = ByteData.sublistView(amplifiedBytes);
+
+  final int sampleCount = pcmBytes.length ~/ 2;
+  for (int i = 0; i < sampleCount; i++) {
+    final int sample = byteData.getInt16(i * 2, Endian.little);
+    final int amplified = (sample * gain).round().clamp(-32768, 32767);
+    outData.setInt16(i * 2, amplified, Endian.little);
+  }
+
+  return amplifiedBytes;
+}
+
 class _PcmChunk {
   final Uint8List bytes;
   final int sampleRate;
@@ -73,6 +92,9 @@ class _PcmChunk {
 class AudioService {
   final AudioRecorder _recorder;
   final AudioPlayer _audioPlayer;
+
+  /// Digital gain multiplier for output audio playback (e.g. 1.0 = 100%, 2.0 = 200%).
+  double outputGain = 2.0;
 
   StreamSubscription<Uint8List>? _recordSubscription;
   final _audioStreamController = StreamController<Uint8List>.broadcast();
@@ -103,9 +125,9 @@ class AudioService {
           android: const AudioContextAndroid(
             stayAwake: true,
             contentType: AndroidContentType.speech,
-            usageType: AndroidUsageType.voiceCommunication,
+            usageType: AndroidUsageType.media,
             audioFocus: AndroidAudioFocus.gainTransient,
-            audioMode: AndroidAudioMode.inCommunication,
+            audioMode: AndroidAudioMode.normal,
             isSpeakerphoneOn: true,
           ),
           iOS: AudioContextIOS(
@@ -118,6 +140,7 @@ class AudioService {
           ),
         ),
       );
+      _audioPlayer.setVolume(1.0);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[AudioService] Failed to set audio context: $e');
@@ -252,7 +275,10 @@ class AudioService {
       _startPlaybackLoop();
       return;
     }
-    _queue.add(_PcmChunk(pcmBytes, sampleRate));
+    final processedBytes = outputGain != 1.0
+        ? amplifyPcm16(pcmBytes, outputGain)
+        : pcmBytes;
+    _queue.add(_PcmChunk(processedBytes, sampleRate));
     _startPlaybackLoop();
   }
 

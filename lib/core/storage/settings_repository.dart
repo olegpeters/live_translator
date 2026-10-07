@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsRepository {
   static const String _keyApiKey = 'openai_api_key';
   static const String _keyTargetLanguage = 'target_language';
+  static const String _keyOutputGain = 'output_gain';
+
+  /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
+  static const double defaultOutputGain = 2.0;
 
   /// The OpenAI realtime translation API only accepts 24 kHz PCM16 mono input.
   static const int inputSampleRate = 24000;
@@ -34,6 +38,16 @@ class SettingsRepository {
   Future<void> setTargetLanguage(String languageCode) async {
     await init();
     await _prefs?.setString(_keyTargetLanguage, languageCode);
+  }
+
+  Future<double> getOutputGain() async {
+    await init();
+    return _prefs?.getDouble(_keyOutputGain) ?? defaultOutputGain;
+  }
+
+  Future<void> setOutputGain(double gain) async {
+    await init();
+    await _prefs?.setDouble(_keyOutputGain, gain);
   }
 
   /// Always returns 24000. Previously stored values (e.g. 16 kHz) are ignored,

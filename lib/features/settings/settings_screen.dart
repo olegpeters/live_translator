@@ -14,6 +14,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
   String _selectedLanguage = 'ru';
+  double _outputGain = SettingsRepository.defaultOutputGain;
   bool _isLoading = true;
 
   final List<Map<String, String>> _languages = const [
@@ -33,12 +34,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final apiKey = await widget.settingsRepository.getApiKey();
     final language = await widget.settingsRepository.getTargetLanguage();
+    final gain = await widget.settingsRepository.getOutputGain();
 
     setState(() {
       if (apiKey != null) {
         _apiKeyController.text = apiKey;
       }
       _selectedLanguage = language;
+      _outputGain = gain;
       _isLoading = false;
     });
   }
@@ -46,6 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
+    await widget.settingsRepository.setOutputGain(_outputGain);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,6 +129,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         });
                       }
                     },
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Ausgabelautstärke / Audio-Verstärkung',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Verstärkungsfaktor:',
+                        style: TextStyle(fontSize: 15),
+                      ),
+                      Text(
+                        '${(_outputGain * 100).round()}% (${_outputGain == 1.0 ? 'Standard' : (_outputGain == 2.0 ? '2x Boost' : '${_outputGain.toStringAsFixed(1)}x')})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _outputGain,
+                    min: 1.0,
+                    max: 3.0,
+                    divisions: 20,
+                    label: '${(_outputGain * 100).round()}%',
+                    onChanged: (val) {
+                      setState(() {
+                        _outputGain = val;
+                      });
+                    },
+                  ),
+                  Text(
+                    'Erhöht die digitale Lautstärke der gesprochenen Übersetzung (100% - 300%). Standard ist 200%.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
