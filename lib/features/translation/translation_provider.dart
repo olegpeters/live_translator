@@ -116,7 +116,7 @@ class TranslationProvider extends ChangeNotifier {
         targetLanguage: targetLanguage,
       );
 
-      // Start audio recording and stream chunks to network
+      // Start audio recording and stream chunks to network continuously.
       await audioService.startRecording();
       _audioRecordSubscription = audioService.audioStream.listen((chunk) {
         translationService.sendAudioChunk(chunk);

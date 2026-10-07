@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -86,10 +85,45 @@ class AudioService {
   set _playing(bool value) => _isPlaying = value;
   Completer<void>? _currentPlaybackCompleter;
   bool? _isRecording;
+  bool _flushRequested = false;
+
+  /// Target minimum bytes buffered before starting a batch playback (~200ms at 24kHz PCM16 mono)
+  static const int minBatchBytes = 9600;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
-        _audioPlayer = audioPlayer ?? AudioPlayer();
+        _audioPlayer = audioPlayer ?? AudioPlayer() {
+    _configureAudioContext();
+  }
+
+  void _configureAudioContext() {
+    try {
+      AudioPlayer.global.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            stayAwake: true,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.voiceCommunication,
+            audioFocus: AndroidAudioFocus.gainTransient,
+            audioMode: AndroidAudioMode.inCommunication,
+            isSpeakerphoneOn: true,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playAndRecord,
+            options: const {
+              AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.allowBluetooth,
+              AVAudioSessionOptions.mixWithOthers,
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AudioService] Failed to set audio context: $e');
+      }
+    }
+  }
 
   Stream<Uint8List> get audioStream => _audioStreamController.stream;
   Stream<double> get audioLevelStream => _audioLevelController.stream;
@@ -115,6 +149,11 @@ class AudioService {
       throw Exception('Microphone permission not granted');
     }
 
+    _isRecording = true;
+    await _startStreamInternal();
+  }
+
+  Future<void> _startStreamInternal() async {
     final config = RecordConfig(
       encoder: AudioEncoder.pcm16bits,
       sampleRate: inputSampleRate,
@@ -122,24 +161,66 @@ class AudioService {
       echoCancel: true,
       noiseSuppress: true,
       autoGain: true,
+      androidConfig: const AndroidRecordConfig(
+        audioSource: AndroidAudioSource.voiceCommunication,
+        audioManagerMode: AudioManagerMode.modeInCommunication,
+        speakerphone: true,
+      ),
+      audioInterruption: AudioInterruptionMode.none,
     );
 
-    final stream = await _recorder.startStream(config);
-    _isRecording = true;
+    try {
+      final stream = await _recorder.startStream(config);
 
-    _recordSubscription = stream.listen((data) {
-      if (!_audioStreamController.isClosed) {
-        _audioStreamController.add(data);
-        _calculateAudioLevel(data);
+      await _recordSubscription?.cancel();
+      _recordSubscription = stream.listen(
+        (data) {
+          if (!_audioStreamController.isClosed) {
+            _audioStreamController.add(data);
+            _calculateAudioLevel(data);
+          }
+        },
+        onError: (error, stackTrace) {
+          if (kDebugMode) {
+            debugPrint('[AudioService] Recording stream error: $error');
+          }
+          _handleRecordingError();
+        },
+        onDone: () {
+          if (kDebugMode) {
+            debugPrint('[AudioService] Recording stream done');
+          }
+          _handleRecordingError();
+        },
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AudioService] Failed to start recording stream: $e');
       }
-    });
+      _handleRecordingError();
+      rethrow;
+    }
+  }
+
+  void _handleRecordingError() {
+    if (isRecording) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (isRecording) {
+          _startStreamInternal().catchError((e) {
+            if (kDebugMode) {
+              debugPrint('[AudioService] Error restarting recording stream: $e');
+            }
+          });
+        }
+      });
+    }
   }
 
   void _calculateAudioLevel(Uint8List pcmBytes) {
     if (pcmBytes.length < 2) return;
 
     // Interpret bytes as 16-bit signed integers
-    int sum = 0;
+    double sum = 0;
     int count = pcmBytes.length ~/ 2;
 
     for (int i = 0; i < pcmBytes.length - 1; i += 2) {
@@ -150,8 +231,15 @@ class AudioService {
     }
 
     double rms = sqrt(sum / count);
-    // Normalize RMS to a range of 0.0 to 1.0
-    double level = (rms / 32768.0).clamp(0.0, 1.0);
+    
+    // Logarithmic (dBFS) scaling for realistic volume level meter
+    double level = 0.0;
+    if (rms > 0) {
+      double db = 20 * log(rms / 32768.0) / ln10; // dBFS range: -inf .. 0 dB
+      // Map -50 dBFS .. 0 dBFS to 0.0 .. 1.0
+      level = ((db + 50) / 50).clamp(0.0, 1.0);
+    }
+
     if (!_audioLevelController.isClosed) {
       _audioLevelController.add(level);
     }
@@ -159,7 +247,11 @@ class AudioService {
 
   Future<void> playAudioDelta(Uint8List pcmBytes,
       {int sampleRate = inputSampleRate}) async {
-    if (pcmBytes.isEmpty) return;
+    if (pcmBytes.isEmpty) {
+      _flushRequested = true;
+      _startPlaybackLoop();
+      return;
+    }
     _queue.add(_PcmChunk(pcmBytes, sampleRate));
     _startPlaybackLoop();
   }
@@ -175,15 +267,47 @@ class AudioService {
       if (_queue.isEmpty) {
         break;
       }
-      // Batch consecutive chunks that share the same sample rate.
+
       final int sampleRate = _queue.first.sampleRate;
+
+      // Jitter buffer: wait briefly for more chunks if queue is under minBatchBytes
+      if (!_flushRequested) {
+        int totalQueueBytes = _queue
+            .where((c) => c.sampleRate == sampleRate)
+            .fold(0, (sum, c) => sum + c.bytes.length);
+
+        int waitedMs = 0;
+        const waitStepMs = 20;
+        const maxWaitMs = 150;
+
+        while (_playing &&
+            !_flushRequested &&
+            _queue.isNotEmpty &&
+            _queue.first.sampleRate == sampleRate &&
+            totalQueueBytes < minBatchBytes &&
+            waitedMs < maxWaitMs) {
+          await Future.delayed(const Duration(milliseconds: waitStepMs));
+          waitedMs += waitStepMs;
+          totalQueueBytes = _queue
+              .where((c) => c.sampleRate == sampleRate)
+              .fold(0, (sum, c) => sum + c.bytes.length);
+        }
+      }
+
+      _flushRequested = false;
+
+      if (!_playing || _queue.isEmpty) {
+        break;
+      }
+
+      // Batch consecutive chunks that share the same sample rate.
       final chunks = <Uint8List>[];
       while (_queue.isNotEmpty && _queue.first.sampleRate == sampleRate) {
         chunks.add(_queue.removeAt(0).bytes);
       }
 
       final int totalLength = chunks.fold(0, (sum, c) => sum + c.length);
-      if (totalLength == 0) break;
+      if (totalLength == 0) continue;
 
       final Uint8List pcmBytes = Uint8List(totalLength);
       int offset = 0;
@@ -220,12 +344,18 @@ class AudioService {
         if (kDebugMode) {
           debugPrint('[AudioService] Playback error: $e\n$st');
         }
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+        await Future.delayed(const Duration(milliseconds: 50));
       } finally {
         await completeSub?.cancel();
         _currentPlaybackCompleter = null;
       }
     }
     _playing = false;
+    _flushRequested = false;
+
     if (_queue.isNotEmpty) {
       _startPlaybackLoop();
     }
@@ -235,7 +365,9 @@ class AudioService {
     if (!isRecording) return;
     await _recordSubscription?.cancel();
     _recordSubscription = null;
-    await _recorder.stop();
+    try {
+      await _recorder.stop();
+    } catch (_) {}
     _isRecording = false;
     if (!_audioLevelController.isClosed) {
       _audioLevelController.add(0.0);
@@ -244,6 +376,7 @@ class AudioService {
 
   Future<void> stopPlayback() async {
     _playing = false;
+    _flushRequested = false;
     _queue.clear();
     if (_currentPlaybackCompleter != null &&
         !_currentPlaybackCompleter!.isCompleted) {

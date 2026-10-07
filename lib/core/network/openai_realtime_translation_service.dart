@@ -271,6 +271,32 @@ class OpenAiRealtimeTranslationService {
           }
           break;
 
+        case 'response.audio.done':
+        case 'response.output_audio.done':
+        case 'response.done':
+        case 'session.output_audio.done':
+          if (!_audioDeltaController.isClosed) {
+            _audioDeltaController.add(
+                AudioDelta(Uint8List(0), sampleRate: AudioDelta.defaultSampleRate));
+          }
+          break;
+
+        case 'response.created':
+          _log('Response created by server');
+          break;
+
+        case 'response.cancelled':
+          _log('WARNING: Response was cancelled by server VAD interruption!');
+          break;
+
+        case 'input_audio_buffer.speech_started':
+          _log('Server VAD: speech_started in input audio');
+          break;
+
+        case 'input_audio_buffer.speech_stopped':
+          _log('Server VAD: speech_stopped in input audio');
+          break;
+
         case 'session.output_transcript.delta':
         case 'response.output_audio_transcript.delta':
         case 'response.audio_transcript.delta':
@@ -323,7 +349,7 @@ class OpenAiRealtimeTranslationService {
           'input': {
             // Enables session.input_transcript.delta so the recognized source
             // text can be used to verify what the model actually hears.
-            //'transcription': {'model': 'gpt-realtime-whisper'},
+            'transcription': {'model': 'gpt-realtime-whisper'},
             'noise_reduction': {'type': 'near_field'},
           },
           'output': {
