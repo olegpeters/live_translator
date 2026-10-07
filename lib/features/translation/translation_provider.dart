@@ -22,6 +22,7 @@ class TranslationProvider extends ChangeNotifier {
   String _targetTranscript = '';
   String _sourceTranscript = '';
   double _audioLevel = 0.0;
+  bool _enableSourceTranscription = false;
   TranslationConnectionState _connectionState =
       TranslationConnectionState.disconnected;
 
@@ -30,6 +31,7 @@ class TranslationProvider extends ChangeNotifier {
   String get targetTranscript => _targetTranscript;
   String get sourceTranscript => _sourceTranscript;
   double get audioLevel => _audioLevel;
+  bool get enableSourceTranscription => _enableSourceTranscription;
   TranslationConnectionState get connectionState => _connectionState;
 
   TranslationProvider({
@@ -38,12 +40,16 @@ class TranslationProvider extends ChangeNotifier {
     required this.audioService,
   }) {
     _initListeners();
-    _loadOutputGain();
+    _loadSettings();
   }
 
-  void _loadOutputGain() {
+  void _loadSettings() {
     settingsRepository.getOutputGain().then((gain) {
       audioService.outputGain = gain;
+    });
+    settingsRepository.getEnableSourceTranscription().then((enabled) {
+      _enableSourceTranscription = enabled;
+      notifyListeners();
     });
   }
 
@@ -107,6 +113,8 @@ class TranslationProvider extends ChangeNotifier {
     }
 
     final targetLanguage = await settingsRepository.getTargetLanguage();
+    _enableSourceTranscription =
+        await settingsRepository.getEnableSourceTranscription();
     audioService.outputGain = await settingsRepository.getOutputGain();
 
     _targetTranscript = '';
@@ -122,6 +130,7 @@ class TranslationProvider extends ChangeNotifier {
       await translationService.connect(
         apiKey: apiKey.trim(),
         targetLanguage: targetLanguage,
+        enableSourceTranscription: _enableSourceTranscription,
       );
 
       // Start audio recording and stream chunks to network continuously.

@@ -5,6 +5,8 @@ class SettingsRepository {
   static const String _keyApiKey = 'openai_api_key';
   static const String _keyTargetLanguage = 'target_language';
   static const String _keyOutputGain = 'output_gain';
+  static const String _keyEnableSourceTranscription =
+      'enable_source_transcription';
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -48,6 +50,16 @@ class SettingsRepository {
   Future<void> setOutputGain(double gain) async {
     await init();
     await _prefs?.setDouble(_keyOutputGain, gain);
+  }
+
+  Future<bool> getEnableSourceTranscription() async {
+    await init();
+    return _prefs?.getBool(_keyEnableSourceTranscription) ?? false;
+  }
+
+  Future<void> setEnableSourceTranscription(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keyEnableSourceTranscription, enabled);
   }
 
   /// Always returns 24000. Previously stored values (e.g. 16 kHz) are ignored,

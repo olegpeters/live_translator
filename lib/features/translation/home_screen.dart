@@ -223,13 +223,14 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Debug: source text as recognized by the model
-                ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Erkannter Quelltext (Deutsch) – Diagnose',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
+                // Debug: source text as recognized by the model (if enabled in settings)
+                if (provider.enableSourceTranscription)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Erkannter Quelltext (Deutsch) – Diagnose',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   children: [
                     Container(
                       width: double.infinity,

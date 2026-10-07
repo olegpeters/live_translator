@@ -73,8 +73,12 @@ void main() {
     late OpenAiRealtimeTranslationService service;
 
     /// Connects and walks through the full handshake until the service is ready.
-    Future<void> connectAndCreateSession() async {
-      final connected = service.connect(apiKey: 'sk-test', targetLanguage: 'ru');
+    Future<void> connectAndCreateSession({bool enableSourceTranscription = false}) async {
+      final connected = service.connect(
+        apiKey: 'sk-test',
+        targetLanguage: 'ru',
+        enableSourceTranscription: enableSourceTranscription,
+      );
       channel.serverSend({
         'type': 'session.created',
         'session': {'id': 'sess_1'},
@@ -99,9 +103,23 @@ void main() {
       await channel.incoming.close();
     });
 
-    test('session.created sends session.update with output language',
+    test('session.created sends session.update with transcription null by default',
         () async {
       await connectAndCreateSession();
+
+      expect(service.currentState, TranslationConnectionState.connected);
+      expect(service.isReady, isTrue);
+      final updates = channel.sentOfType('session.update');
+      expect(updates, hasLength(1));
+      expect(updates.first['session']['audio']['output']['language'], 'ru');
+      expect(updates.first['session']['audio']['input']['transcription'], isNull);
+      expect(updates.first['session']['audio']['input']['noise_reduction'],
+          {'type': 'near_field'});
+    });
+
+    test('session.created sends session.update with whisper model when source transcription enabled',
+        () async {
+      await connectAndCreateSession(enableSourceTranscription: true);
 
       expect(service.currentState, TranslationConnectionState.connected);
       expect(service.isReady, isTrue);

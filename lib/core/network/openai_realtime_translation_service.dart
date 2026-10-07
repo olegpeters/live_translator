@@ -57,6 +57,8 @@ class OpenAiRealtimeTranslationService {
   bool _isReady = false;
   bool _sessionCreated = false;
   Stopwatch? _connectWatch;
+  String _targetLanguage = 'ru';
+  bool _enableSourceTranscription = false;
 
   final _audioDeltaController = StreamController<AudioDelta>.broadcast();
   final _transcriptDeltaController = StreamController<String>.broadcast();
@@ -119,6 +121,7 @@ class OpenAiRealtimeTranslationService {
   Future<void> connect({
     required String apiKey,
     required String targetLanguage,
+    bool enableSourceTranscription = false,
   }) async {
     if (_currentState == TranslationConnectionState.connecting) {
       _log('Connect already in progress; waiting for ready');
@@ -130,6 +133,8 @@ class OpenAiRealtimeTranslationService {
       return;
     }
 
+    _targetLanguage = targetLanguage;
+    _enableSourceTranscription = enableSourceTranscription;
     _pending.clear();
     _isReady = false;
     _sessionCreated = false;
@@ -164,7 +169,7 @@ class OpenAiRealtimeTranslationService {
       }
 
       _subscription = _channel!.stream.listen(
-        (data) => _handleIncomingMessage(data, targetLanguage),
+        (data) => _handleIncomingMessage(data),
         onError: (error, stackTrace) {
           _log('WebSocket stream error occurred: $error',
               error: error, stackTrace: stackTrace);
@@ -225,7 +230,7 @@ class OpenAiRealtimeTranslationService {
     }
   }
 
-  void _handleIncomingMessage(dynamic message, String targetLanguage) {
+  void _handleIncomingMessage(dynamic message) {
     try {
       final Map<String, dynamic> event = jsonDecode(message as String);
       final String type = event['type'] ?? '';
@@ -235,7 +240,7 @@ class OpenAiRealtimeTranslationService {
           _log('Session created event received: ${event['session']?['id'] ?? ''} '
               'after ${_connectWatch?.elapsedMilliseconds} ms');
           _sessionCreated = true;
-          _sendSessionUpdate(targetLanguage);
+          _sendSessionUpdate();
           break;
 
         case 'session.updated':
@@ -336,30 +341,35 @@ class OpenAiRealtimeTranslationService {
     }
   }
 
-  void _sendSessionUpdate(String targetLanguage) {
+  void _sendSessionUpdate() {
     if (_channel == null) {
       _log('Cannot send session update: WebSocket channel is null');
       return;
+    }
+
+    final Map<String, dynamic> inputConfig = {
+      'noise_reduction': {'type': 'near_field'},
+    };
+
+    if (_enableSourceTranscription) {
+      inputConfig['transcription'] = {'model': 'gpt-realtime-whisper'};
+    } else {
+      inputConfig['transcription'] = null;
     }
 
     final sessionUpdate = {
       'type': 'session.update',
       'session': {
         'audio': {
-          'input': {
-            // Enables session.input_transcript.delta so the recognized source
-            // text can be used to verify what the model actually hears.
-            'transcription': {'model': 'gpt-realtime-whisper'},
-            'noise_reduction': {'type': 'near_field'},
-          },
+          'input': inputConfig,
           'output': {
-            'language': targetLanguage,
+            'language': _targetLanguage,
           }
         }
       }
     };
 
-    _log('Sending session.update for language: $targetLanguage');
+    _log('Sending session.update for language: $_targetLanguage, enableSourceTranscription: $_enableSourceTranscription');
     _channel!.sink.add(jsonEncode(sessionUpdate));
   }
 

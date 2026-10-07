@@ -15,6 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _obscureApiKey = true;
   String _selectedLanguage = 'ru';
   double _outputGain = SettingsRepository.defaultOutputGain;
+  bool _enableSourceTranscription = false;
   bool _isLoading = true;
 
   final List<Map<String, String>> _languages = const [
@@ -35,6 +36,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final apiKey = await widget.settingsRepository.getApiKey();
     final language = await widget.settingsRepository.getTargetLanguage();
     final gain = await widget.settingsRepository.getOutputGain();
+    final enableSourceTranscription =
+        await widget.settingsRepository.getEnableSourceTranscription();
 
     setState(() {
       if (apiKey != null) {
@@ -42,6 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       _selectedLanguage = language;
       _outputGain = gain;
+      _enableSourceTranscription = enableSourceTranscription;
       _isLoading = false;
     });
   }
@@ -50,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
     await widget.settingsRepository.setOutputGain(_outputGain);
+    await widget.settingsRepository
+        .setEnableSourceTranscription(_enableSourceTranscription);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,6 +170,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'Erhöht die digitale Lautstärke der gesprochenen Übersetzung (100% - 300%). Standard ist 200%.',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Diagnose & Debugging',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Quelltext-Transkription (Deutsch)'),
+                    subtitle: const Text(
+                      'Erkennt und zeigt den deutschen Originaltext an. Nur für Debugging/Diagnose relevant. Standard: Deaktiviert.',
+                    ),
+                    value: _enableSourceTranscription,
+                    onChanged: (val) {
+                      setState(() {
+                        _enableSourceTranscription = val;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

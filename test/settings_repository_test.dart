@@ -36,5 +36,18 @@ void main() {
       await repository.setOutputGain(2.5);
       expect(await repository.getOutputGain(), 2.5);
     });
+
+    test('getEnableSourceTranscription returns false by default', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      expect(await repository.getEnableSourceTranscription(), false);
+    });
+
+    test('setEnableSourceTranscription persists value correctly', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      await repository.setEnableSourceTranscription(true);
+      expect(await repository.getEnableSourceTranscription(), true);
+    });
   });
 }
