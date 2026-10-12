@@ -78,6 +78,9 @@ class OpenAiRealtimeTranslationService {
 
   TranslationConnectionState get currentState => _currentState;
 
+  /// Total duration of audio sent to the API in seconds (24 kHz PCM16 mono).
+  double get sentAudioDurationSeconds => _sentBytes / 48000.0;
+
   /// True once the server confirmed the session configuration
   /// (`session.updated`). Audio is only sent while ready.
   bool get isReady => _isReady;
@@ -453,6 +456,15 @@ class OpenAiRealtimeTranslationService {
     final Uint8List frame = Uint8List(frameBytes);
     frame.setRange(0, rest.length, rest);
     _sendFrame(frame);
+  }
+
+  /// Sends a response.cancel event to stop current server response generation.
+  void cancelCurrentResponse() {
+    if (_currentState == TranslationConnectionState.connected &&
+        _channel != null) {
+      _log('Sending response.cancel event to server');
+      _channel!.sink.add(jsonEncode({'type': 'response.cancel'}));
+    }
   }
 
   Future<void> gracefulStop() async {

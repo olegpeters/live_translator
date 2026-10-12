@@ -93,6 +93,8 @@ void main() {
       final service = AudioService();
       expect(service.isRecording, false);
       expect(service.outputGain, 2.0);
+      expect(service.currentBufferDurationSeconds, 0.0);
+      expect(service.currentPlaybackRate, 1.0);
       await service.stopPlayback();
       await service.dispose();
     });

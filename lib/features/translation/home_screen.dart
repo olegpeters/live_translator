@@ -80,6 +80,74 @@ class HomeScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (isTranslating) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: provider.latencySeconds > 5.0
+                                  ? Colors.red.shade100
+                                  : (provider.latencySeconds > 2.5
+                                      ? Colors.orange.shade100
+                                      : Colors.green.shade100),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: provider.latencySeconds > 5.0
+                                    ? Colors.red.shade400
+                                    : (provider.latencySeconds > 2.5
+                                        ? Colors.orange.shade400
+                                        : Colors.green.shade400),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.timer_outlined,
+                                      size: 14,
+                                      color: provider.latencySeconds > 5.0
+                                          ? Colors.red.shade900
+                                          : (provider.latencySeconds > 2.5
+                                              ? Colors.orange.shade900
+                                              : Colors.green.shade900),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${provider.latencySeconds.toStringAsFixed(1)} s Latenz',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: provider.latencySeconds > 5.0
+                                            ? Colors.red.shade900
+                                            : (provider.latencySeconds > 2.5
+                                                ? Colors.orange.shade900
+                                                : Colors.green.shade900),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (provider.playbackRate > 1.01)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2.0),
+                                    child: Text(
+                                      '${provider.playbackRate.toStringAsFixed(2)}x Tempo',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.orange.shade900,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

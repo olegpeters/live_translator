@@ -109,6 +109,32 @@ class AudioService {
   bool? _isRecording;
   bool _flushRequested = false;
 
+  DateTime? _currentBatchStart;
+  int _currentBatchDurationMs = 0;
+  double _currentPlaybackRate = 1.0;
+
+  double get currentPlaybackRate => _currentPlaybackRate;
+
+  /// Unplayed buffer duration in seconds (queued + remaining current batch)
+  double get currentBufferDurationSeconds {
+    int totalBytes = 0;
+    if (_pcmChunkQueue != null && _pcmChunkQueue!.isNotEmpty) {
+      for (final chunk in _pcmChunkQueue!) {
+        totalBytes += chunk.bytes.length;
+      }
+    }
+    double sec = totalBytes / (inputSampleRate * 2.0);
+    if (_currentBatchStart != null && _currentBatchDurationMs > 0) {
+      final elapsedMs =
+          DateTime.now().difference(_currentBatchStart!).inMilliseconds;
+      final remainingBatchMs = _currentBatchDurationMs - elapsedMs;
+      if (remainingBatchMs > 0) {
+        sec += remainingBatchMs / 1000.0;
+      }
+    }
+    return sec;
+  }
+
   /// Target minimum bytes buffered before starting a batch playback (~200ms at 24kHz PCM16 mono)
   static const int minBatchBytes = 9600;
 
@@ -346,6 +372,40 @@ class AudioService {
       final completer = Completer<void>();
       _currentPlaybackCompleter = completer;
 
+      // Emergency queue trimming if buffer backlog > 8.0s
+      if (currentBufferDurationSeconds > 8.0) {
+        if (kDebugMode) {
+          debugPrint(
+              '[AudioService] Critical lag (${currentBufferDurationSeconds.toStringAsFixed(1)}s). Trimming queue.');
+        }
+        while (_queue.isNotEmpty && currentBufferDurationSeconds > 4.0) {
+          _queue.removeAt(0);
+        }
+      }
+
+      // Dynamic playback speed adjustment to prevent drift
+      double targetRate = 1.0;
+      if (currentBufferDurationSeconds > 4.0) {
+        targetRate = 1.15;
+      } else if (currentBufferDurationSeconds > 2.0) {
+        targetRate = 1.08;
+      }
+
+      if ((targetRate - _currentPlaybackRate).abs() > 0.01) {
+        _currentPlaybackRate = targetRate;
+        try {
+          await _audioPlayer.setPlaybackRate(targetRate);
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[AudioService] Failed to set playback rate: $e');
+          }
+        }
+      }
+
+      final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
+      _currentBatchStart = DateTime.now();
+      _currentBatchDurationMs = durationMs;
+
       StreamSubscription? completeSub;
       try {
         completeSub = _audioPlayer.onPlayerComplete.listen((_) {
@@ -357,7 +417,6 @@ class AudioService {
         await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
 
         // Estimated duration: sampleRate samples/sec * 2 bytes/sample -> sampleRate * 2 / 1000 bytes/ms
-        final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
         await completer.future.timeout(
           Duration(milliseconds: durationMs + 800),
           onTimeout: () {
@@ -375,6 +434,8 @@ class AudioService {
         }
         await Future.delayed(const Duration(milliseconds: 50));
       } finally {
+        _currentBatchStart = null;
+        _currentBatchDurationMs = 0;
         await completeSub?.cancel();
         _currentPlaybackCompleter = null;
       }
@@ -404,11 +465,15 @@ class AudioService {
     _playing = false;
     _flushRequested = false;
     _queue.clear();
+    _currentBatchStart = null;
+    _currentBatchDurationMs = 0;
+    _currentPlaybackRate = 1.0;
     if (_currentPlaybackCompleter != null &&
         !_currentPlaybackCompleter!.isCompleted) {
       _currentPlaybackCompleter!.complete();
     }
     try {
+      await _audioPlayer.setPlaybackRate(1.0);
       await _audioPlayer.stop();
     } catch (_) {}
   }

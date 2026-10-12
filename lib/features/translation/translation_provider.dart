@@ -16,12 +16,14 @@ class TranslationProvider extends ChangeNotifier {
   StreamSubscription? _sourceTranscriptSubscription;
   StreamSubscription? _networkStateSubscription;
   StreamSubscription? _audioLevelSubscription;
+  Timer? _latencyTimer;
 
   bool _isTranslating = false;
   String _statusMessage = 'Inaktiv';
   String _targetTranscript = '';
   String _sourceTranscript = '';
   double _audioLevel = 0.0;
+  double _latencySeconds = 0.0;
   bool _enableSourceTranscription = false;
   TranslationConnectionState _connectionState =
       TranslationConnectionState.disconnected;
@@ -31,6 +33,8 @@ class TranslationProvider extends ChangeNotifier {
   String get targetTranscript => _targetTranscript;
   String get sourceTranscript => _sourceTranscript;
   double get audioLevel => _audioLevel;
+  double get latencySeconds => _latencySeconds;
+  double get playbackRate => audioService.currentPlaybackRate;
   bool get enableSourceTranscription => _enableSourceTranscription;
   TranslationConnectionState get connectionState => _connectionState;
 
@@ -138,9 +142,11 @@ class TranslationProvider extends ChangeNotifier {
       _audioRecordSubscription = audioService.audioStream.listen((chunk) {
         translationService.sendAudioChunk(chunk);
       });
+      _startLatencyTimer();
     } catch (e) {
       _statusMessage = 'Fehler beim Starten: ${e.toString()}';
       _isTranslating = false;
+      _stopLatencyTimer();
       await _enableWakeLock(false);
       notifyListeners();
     }
@@ -148,6 +154,7 @@ class TranslationProvider extends ChangeNotifier {
 
   Future<void> stopTranslation() async {
     _statusMessage = 'Stoppe...';
+    _stopLatencyTimer();
     notifyListeners();
 
     await _audioRecordSubscription?.cancel();
@@ -159,6 +166,24 @@ class TranslationProvider extends ChangeNotifier {
 
     _isTranslating = false;
     notifyListeners();
+  }
+
+  void _startLatencyTimer() {
+    _latencyTimer?.cancel();
+    _latencyTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      final currentLatency = audioService.currentBufferDurationSeconds;
+      if ((currentLatency - _latencySeconds).abs() > 0.05 ||
+          (currentLatency == 0.0 && _latencySeconds > 0.0)) {
+        _latencySeconds = currentLatency;
+        notifyListeners();
+      }
+    });
+  }
+
+  void _stopLatencyTimer() {
+    _latencyTimer?.cancel();
+    _latencyTimer = null;
+    _latencySeconds = 0.0;
   }
 
   Future<void> _enableWakeLock(bool enable) async {
@@ -181,6 +206,7 @@ class TranslationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopLatencyTimer();
     _audioRecordSubscription?.cancel();
     _audioPlaybackSubscription?.cancel();
     _transcriptSubscription?.cancel();
