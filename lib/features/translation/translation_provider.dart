@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/audio/audio_service.dart';
-import '../../core/network/openai_realtime_translation_service.dart';
+import '../../core/network/soniox_realtime_translation_service.dart';
 import '../../core/storage/settings_repository.dart';
 
 class TranslationProvider extends ChangeNotifier {
   final SettingsRepository settingsRepository;
-  final OpenAiRealtimeTranslationService translationService;
+  final SonioxRealtimeTranslationService translationService;
   final AudioService audioService;
 
   StreamSubscription? _audioRecordSubscription;
@@ -58,7 +58,7 @@ class TranslationProvider extends ChangeNotifier {
       _connectionState = state;
       switch (state) {
         case TranslationConnectionState.connecting:
-          _statusMessage = 'Verbinde mit OpenAI...';
+          _statusMessage = 'Verbinde mit Soniox...';
           break;
         case TranslationConnectionState.connected:
           _statusMessage = 'Live Übersetzung aktiv';
@@ -113,6 +113,7 @@ class TranslationProvider extends ChangeNotifier {
     }
 
     final targetLanguage = await settingsRepository.getTargetLanguage();
+    final voice = await settingsRepository.getVoice();
     _enableSourceTranscription =
         await settingsRepository.getEnableSourceTranscription();
     audioService.outputGain = await settingsRepository.getOutputGain();
@@ -130,6 +131,7 @@ class TranslationProvider extends ChangeNotifier {
       await translationService.connect(
         apiKey: apiKey.trim(),
         targetLanguage: targetLanguage,
+        voice: voice,
         enableSourceTranscription: _enableSourceTranscription,
       );
 

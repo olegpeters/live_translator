@@ -14,6 +14,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
   String _selectedLanguage = 'ru';
+  String _selectedVoice = SettingsRepository.defaultVoice;
   double _outputGain = SettingsRepository.defaultOutputGain;
   bool _enableSourceTranscription = false;
   bool _isLoading = true;
@@ -26,6 +27,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'code': 'uk', 'name': 'Ukrainisch (uk)'},
   ];
 
+  final List<Map<String, String>> _voices = const [
+    {'id': 'Daniel', 'name': 'Daniel (Männlich, Standard)'},
+    {'id': 'Adrian', 'name': 'Adrian (Männlich)'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final apiKey = await widget.settingsRepository.getApiKey();
     final language = await widget.settingsRepository.getTargetLanguage();
+    final voice = await widget.settingsRepository.getVoice();
     final gain = await widget.settingsRepository.getOutputGain();
     final enableSourceTranscription =
         await widget.settingsRepository.getEnableSourceTranscription();
@@ -44,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _apiKeyController.text = apiKey;
       }
       _selectedLanguage = language;
+      _selectedVoice = voice;
       _outputGain = gain;
       _enableSourceTranscription = enableSourceTranscription;
       _isLoading = false;
@@ -53,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
+    await widget.settingsRepository.setVoice(_selectedVoice);
     await widget.settingsRepository.setOutputGain(_outputGain);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
@@ -85,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'OpenAI API Konfiguration',
+                    'Soniox API Konfiguration',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
@@ -93,8 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _apiKeyController,
                     obscureText: _obscureApiKey,
                     decoration: InputDecoration(
-                      labelText: 'OpenAI API Key',
-                      hintText: 'sk-...',
+                      labelText: 'Soniox API Key',
+                      hintText: 'Key...',
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -117,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: _selectedLanguage,
+                    value: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Zielsprache',
                       border: OutlineInputBorder(),
@@ -132,6 +141,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (val != null) {
                         setState(() {
                           _selectedLanguage = val;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedVoice,
+                    decoration: const InputDecoration(
+                      labelText: 'Soniox Stimme (TTS Voice)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _voices.map((voice) {
+                      return DropdownMenuItem<String>(
+                        value: voice['id'],
+                        child: Text(voice['name']!),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedVoice = val;
                         });
                       }
                     },

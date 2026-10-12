@@ -1,0 +1,6 @@
+- `[x]` Implement `SonioxRealtimeTranslationService` (`lib/core/network/soniox_realtime_translation_service.dart`)
+- `[x]` Update `SettingsRepository` (`lib/core/storage/settings_repository.dart`) for Soniox
+- `[x]` Update `TranslationProvider` (`lib/features/translation/translation_provider.dart`) to use `SonioxRealtimeTranslationService`
+- `[x]` Update `SettingsScreen` (`lib/features/settings/settings_screen.dart`) and `main.dart`
+- `[x]` Clean up obsolete OpenAI files (`openai_realtime_translation_service.dart` & test)
+- `[x]` Create unit tests `test/soniox_realtime_translation_service_test.dart` and verify tests
