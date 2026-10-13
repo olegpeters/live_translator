@@ -119,12 +119,14 @@ void main() {
 
       final sttConfigs = sttChannel.jsonSent;
       expect(sttConfigs, hasLength(1));
+      expect(sttConfigs.first['api_key'], 'soniox-test-key');
       expect(sttConfigs.first['model'], 'stt-rt-v5');
       expect(sttConfigs.first['translation']['target_language'], 'ru');
 
       final ttsConfigs = ttsChannel.jsonSent;
       expect(ttsConfigs, hasLength(1));
       expect(ttsConfigs.first['model'], 'tts-rt-v2');
+      expect(ttsConfigs.first['language'], 'ru');
       expect(ttsConfigs.first['voice'], 'Daniel');
     });
 

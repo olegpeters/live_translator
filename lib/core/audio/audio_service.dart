@@ -153,12 +153,21 @@ class AudioService {
   bool get isRecording => _isRecording ?? false;
 
   Future<bool> checkAndRequestPermissions() async {
+    if (kIsWeb) return true;
     final status = await Permission.microphone.status;
     if (status.isGranted) {
       return true;
     }
     final result = await Permission.microphone.request();
     return result.isGranted;
+  }
+
+  Future<void> prepareAudioForPlayback() async {
+    try {
+      if (kIsWeb) {
+        await _audioPlayer.resume();
+      }
+    } catch (_) {}
   }
 
   /// The OpenAI realtime translation API requires 24 kHz PCM16 mono input.
@@ -185,8 +194,8 @@ class AudioService {
       noiseSuppress: true,
       autoGain: true,
       androidConfig: const AndroidRecordConfig(
-        audioSource: AndroidAudioSource.voiceCommunication,
-        audioManagerMode: AudioManagerMode.modeInCommunication,
+        audioSource: AndroidAudioSource.mic,
+        audioManagerMode: AudioManagerMode.modeNormal,
         speakerphone: true,
       ),
       audioInterruption: AudioInterruptionMode.none,

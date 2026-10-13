@@ -57,10 +57,17 @@ class SonioxRealtimeTranslationService {
 
   Completer<void>? _readyCompleter;
   bool _isReady = false;
+  static const Duration _ttsStreamCloseDelay = Duration(seconds: 3);
+
   Stopwatch? _connectWatch;
+  String _apiKey = '';
   String _targetLanguage = 'ru';
   String _voice = 'Daniel';
   bool _enableSourceTranscription = false;
+  int _ttsStreamIndex = 1;
+  String _currentTtsStreamId = 'stream-1';
+  bool _currentTtsStreamActive = false;
+  Timer? _ttsStreamCloseTimer;
 
   final _audioDeltaController = StreamController<AudioDelta>.broadcast();
   final _transcriptDeltaController = StreamController<String>.broadcast();
@@ -129,9 +136,13 @@ class SonioxRealtimeTranslationService {
       return;
     }
 
+    _apiKey = apiKey;
     _targetLanguage = targetLanguage;
     _voice = voice;
     _enableSourceTranscription = enableSourceTranscription;
+    _ttsStreamIndex = 1;
+    _currentTtsStreamId = 'stream-1';
+    _currentTtsStreamActive = true;
     _pending.clear();
     _isReady = false;
     _levelLoggedFrames = 0;
@@ -144,6 +155,7 @@ class SonioxRealtimeTranslationService {
 
     try {
       final headers = {'Authorization': 'Bearer $apiKey'};
+      final protocols = ['soniox-api-key', apiKey];
 
       // 1. Establish STT + Translation WebSocket connection
       final sttUri = Uri.parse(_sttBaseUrl);
@@ -151,7 +163,10 @@ class SonioxRealtimeTranslationService {
       if (factory != null) {
         _sttChannel = factory(sttUri, headers);
       } else if (kIsWeb) {
-        _sttChannel = WebSocketChannel.connect(sttUri);
+        _sttChannel = WebSocketChannel.connect(
+          sttUri,
+          protocols: protocols,
+        );
       } else {
         _sttChannel = IOWebSocketChannel.connect(sttUri, headers: headers);
       }
@@ -161,7 +176,10 @@ class SonioxRealtimeTranslationService {
       if (factory != null) {
         _ttsChannel = factory(ttsUri, headers);
       } else if (kIsWeb) {
-        _ttsChannel = WebSocketChannel.connect(ttsUri);
+        _ttsChannel = WebSocketChannel.connect(
+          ttsUri,
+          protocols: protocols,
+        );
       } else {
         _ttsChannel = IOWebSocketChannel.connect(ttsUri, headers: headers);
       }
@@ -215,6 +233,7 @@ class SonioxRealtimeTranslationService {
 
   void _sendSttConfig() {
     final config = {
+      'api_key': _apiKey,
       'model': 'stt-rt-v5',
       'audio_format': 'pcm_s16le',
       'sample_rate': 24000,
@@ -229,16 +248,35 @@ class SonioxRealtimeTranslationService {
     _sttChannel?.sink.add(jsonEncode(config));
   }
 
-  void _sendTtsConfig() {
+  void _sendTtsConfig([String? streamId]) {
+    final id = streamId ?? _currentTtsStreamId;
     final config = {
-      'stream_id': 'stream-1',
+      'stream_id': id,
       'model': 'tts-rt-v2',
+      'language': _targetLanguage,
       'voice': _voice,
       'audio_format': 'pcm_s16le',
       'sample_rate': 24000,
     };
-    _log('Sending TTS config for voice: $_voice');
+    _log('Sending TTS config: stream_id=$id, model=tts-rt-v2, language=$_targetLanguage, voice=$_voice');
     _ttsChannel?.sink.add(jsonEncode(config));
+  }
+
+  void _startNewTtsStream() {
+    _ttsStreamIndex++;
+    _currentTtsStreamId = 'stream-$_ttsStreamIndex';
+    _currentTtsStreamActive = true;
+    _sendTtsConfig(_currentTtsStreamId);
+  }
+
+  void _scheduleTtsStreamClose() {
+    _ttsStreamCloseTimer?.cancel();
+    _ttsStreamCloseTimer = Timer(_ttsStreamCloseDelay, () {
+      _log('TTS stream close timer expired for $_currentTtsStreamId');
+      if (_currentTtsStreamActive) {
+        _sendTextToTts('', textEnd: true);
+      }
+    });
   }
 
   void _markReady() {
@@ -272,6 +310,17 @@ class SonioxRealtimeTranslationService {
         return;
       }
 
+      // Check if STT response contains audio directly
+      final String? sttAudio =
+          response['audio'] as String? ?? response['audio_base64'] as String?;
+      if (sttAudio != null && sttAudio.isNotEmpty) {
+        final Uint8List audioBytes = base64Decode(sttAudio);
+        _log('Received STT audio delta directly: ${audioBytes.length} bytes');
+        if (!_audioDeltaController.isClosed) {
+          _audioDeltaController.add(AudioDelta(audioBytes, sampleRate: 24000));
+        }
+      }
+
       final List<dynamic>? tokens = response['tokens'] as List<dynamic>?;
       if (tokens != null) {
         for (final tokenObj in tokens) {
@@ -280,23 +329,31 @@ class SonioxRealtimeTranslationService {
           final String translationStatus =
               tokenObj['translation_status'] as String? ?? '';
 
-          if (translationStatus == 'original' && text.isNotEmpty) {
-            _log('Source transcript: $text');
+          // Check if token contains audio
+          final String? tokenAudio = tokenObj['audio'] as String? ??
+              tokenObj['audio_base64'] as String?;
+          if (tokenAudio != null && tokenAudio.isNotEmpty) {
+            final Uint8List audioBytes = base64Decode(tokenAudio);
+            _log('Received token audio delta: ${audioBytes.length} bytes');
+            if (!_audioDeltaController.isClosed) {
+              _audioDeltaController
+                  .add(AudioDelta(audioBytes, sampleRate: 24000));
+            }
+          }
+
+          if (text == '<end>') {
+            _log('Utterance end detected; scheduling TTS stream close');
+            _scheduleTtsStreamClose();
+          } else if (translationStatus == 'original' && text.isNotEmpty) {
             if (!_sourceTranscriptController.isClosed) {
               _sourceTranscriptController.add(text);
             }
           } else if (translationStatus == 'translation' && text.isNotEmpty) {
-            _log('Translation transcript: $text');
             if (!_transcriptDeltaController.isClosed) {
               _transcriptDeltaController.add(text);
             }
             // Stream translated text chunk directly to TTS WebSocket
             _sendTextToTts(text);
-          }
-
-          if (text == '<end>') {
-            _log('Utterance end detected');
-            _sendTextToTts('', textEnd: true);
           }
         }
       }
@@ -307,32 +364,101 @@ class SonioxRealtimeTranslationService {
 
   void _sendTextToTts(String text, {bool textEnd = false}) {
     if (_ttsChannel == null) return;
+
+    if (text.isNotEmpty) {
+      _ttsStreamCloseTimer?.cancel();
+      _ttsStreamCloseTimer = null;
+
+      if (!_currentTtsStreamActive) {
+        _startNewTtsStream();
+      }
+    }
+
     final payload = {
-      'stream_id': 'stream-1',
+      'stream_id': _currentTtsStreamId,
       'text': text,
       'text_end': textEnd,
     };
+    _log('Sending text to TTS ($_currentTtsStreamId): "$text" (textEnd: $textEnd)');
     _ttsChannel?.sink.add(jsonEncode(payload));
+
+    if (textEnd) {
+      _currentTtsStreamActive = false;
+      _ttsStreamCloseTimer?.cancel();
+      _ttsStreamCloseTimer = null;
+    }
   }
 
   void _handleTtsMessage(dynamic message) {
     try {
-      if (message is! String) return;
-      final Map<String, dynamic> response = jsonDecode(message);
+      if (message == null) return;
 
-      final String? base64Audio = response['audio'] as String?;
-      if (base64Audio != null && base64Audio.isNotEmpty) {
-        final Uint8List audioBytes = base64Decode(base64Audio);
+      if (message is Uint8List) {
+        _log('Received TTS binary audio delta: ${message.length} bytes');
         if (!_audioDeltaController.isClosed) {
-          _audioDeltaController.add(AudioDelta(audioBytes, sampleRate: 24000));
+          _audioDeltaController.add(AudioDelta(message, sampleRate: 24000));
         }
+        return;
       }
 
-      final bool audioEnd = response['audio_end'] == true || response['terminated'] == true;
-      if (audioEnd) {
+      if (message is ByteBuffer) {
+        final bytes = message.asUint8List();
+        _log('Received TTS binary audio delta (ByteBuffer): ${bytes.length} bytes');
         if (!_audioDeltaController.isClosed) {
-          _audioDeltaController.add(AudioDelta(Uint8List(0), sampleRate: 24000));
+          _audioDeltaController.add(AudioDelta(bytes, sampleRate: 24000));
         }
+        return;
+      }
+
+      if (message is TypedData) {
+        final bytes = message.buffer.asUint8List(message.offsetInBytes, message.lengthInBytes);
+        _log('Received TTS binary audio delta (TypedData): ${bytes.length} bytes');
+        if (!_audioDeltaController.isClosed) {
+          _audioDeltaController.add(AudioDelta(bytes, sampleRate: 24000));
+        }
+        return;
+      }
+
+      if (message is List<int>) {
+        final bytes = Uint8List.fromList(message);
+        _log('Received TTS binary audio delta (List<int>): ${bytes.length} bytes');
+        if (!_audioDeltaController.isClosed) {
+          _audioDeltaController.add(AudioDelta(bytes, sampleRate: 24000));
+        }
+        return;
+      }
+
+      if (message is String) {
+        _log('TTS raw message received: $message');
+        final Map<String, dynamic> response = jsonDecode(message);
+
+        if (response.containsKey('error_code') && response['error_code'] != null) {
+          _log('Soniox TTS Error: ${response['error_code']} - ${response['error_message']}');
+          return;
+        }
+        if (response.containsKey('error') && response['error'] != null) {
+          _log('Soniox TTS Error: ${response['error']}');
+          return;
+        }
+
+        final String? base64Audio = response['audio'] as String?;
+        if (base64Audio != null && base64Audio.isNotEmpty) {
+          final Uint8List audioBytes = base64Decode(base64Audio);
+          _log('Received TTS base64 audio delta: ${audioBytes.length} bytes');
+          if (!_audioDeltaController.isClosed) {
+            _audioDeltaController.add(AudioDelta(audioBytes, sampleRate: 24000));
+          }
+        }
+
+        final bool audioEnd = response['audio_end'] == true || response['terminated'] == true;
+        if (audioEnd) {
+          _log('TTS audio stream end received');
+          if (!_audioDeltaController.isClosed) {
+            _audioDeltaController.add(AudioDelta(Uint8List(0), sampleRate: 24000));
+          }
+        }
+      } else {
+        _log('Received unknown TTS message type: ${message.runtimeType}');
       }
     } catch (e, stackTrace) {
       _log('Error handling TTS message: $e', error: e, stackTrace: stackTrace);
@@ -416,6 +542,8 @@ class SonioxRealtimeTranslationService {
     }
 
     _log('Initiating graceful stop...');
+    _ttsStreamCloseTimer?.cancel();
+    _ttsStreamCloseTimer = null;
     _flushPending();
     _isReady = false;
     _setState(TranslationConnectionState.closing);
@@ -435,6 +563,8 @@ class SonioxRealtimeTranslationService {
 
   Future<void> close() async {
     _log('Closing Soniox WebSocket connections...');
+    _ttsStreamCloseTimer?.cancel();
+    _ttsStreamCloseTimer = null;
     _stopTimer?.cancel();
     _stopTimer = null;
     _pending.clear();

@@ -126,6 +126,7 @@ class TranslationProvider extends ChangeNotifier {
 
     try {
       await _enableWakeLock(true);
+      await audioService.prepareAudioForPlayback();
 
       // Start network connection
       await translationService.connect(
