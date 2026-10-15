@@ -298,6 +298,7 @@ class AudioService {
   }
 
   Future<void> _runPlaybackLoop() async {
+    bool isFirstBatch = true;
     while (_playing) {
       if (_queue.isEmpty) {
         break;
@@ -305,8 +306,8 @@ class AudioService {
 
       final int sampleRate = _queue.first.sampleRate;
 
-      // Jitter buffer: wait briefly for more chunks if queue is under minBatchBytes
-      if (!_flushRequested) {
+      // Initial jitter buffer: wait briefly for more chunks ONLY on the first batch when starting from idle
+      if (!_flushRequested && isFirstBatch) {
         int totalQueueBytes = _queue
             .where((c) => c.sampleRate == sampleRate)
             .fold(0, (sum, c) => sum + c.bytes.length);
@@ -329,6 +330,7 @@ class AudioService {
         }
       }
 
+      isFirstBatch = false;
       _flushRequested = false;
 
       if (!_playing || _queue.isEmpty) {
@@ -355,6 +357,9 @@ class AudioService {
       final completer = Completer<void>();
       _currentPlaybackCompleter = completer;
 
+      final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
+      final stopwatch = Stopwatch()..start();
+
       StreamSubscription? completeSub;
       try {
         completeSub = _audioPlayer.onPlayerComplete.listen((_) {
@@ -365,10 +370,8 @@ class AudioService {
 
         await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
 
-        // Estimated duration: sampleRate samples/sec * 2 bytes/sample -> sampleRate * 2 / 1000 bytes/ms
-        final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
         await completer.future.timeout(
-          Duration(milliseconds: durationMs + 800),
+          Duration(milliseconds: durationMs + 200),
           onTimeout: () {
             if (!completer.isCompleted) {
               completer.complete();
@@ -382,10 +385,16 @@ class AudioService {
         if (!completer.isCompleted) {
           completer.complete();
         }
-        await Future.delayed(const Duration(milliseconds: 50));
       } finally {
         await completeSub?.cancel();
         _currentPlaybackCompleter = null;
+      }
+
+      // Ensure we never cut off playback before the physical audio duration has elapsed
+      final elapsedMs = stopwatch.elapsedMilliseconds;
+      if (elapsedMs < durationMs) {
+        final remainingMs = durationMs - elapsedMs;
+        await Future.delayed(Duration(milliseconds: remainingMs));
       }
     }
     _playing = false;

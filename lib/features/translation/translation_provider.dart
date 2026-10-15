@@ -158,6 +158,7 @@ class TranslationProvider extends ChangeNotifier {
 
     await audioService.stopRecording();
     await translationService.gracefulStop();
+    await audioService.stopPlayback();
     await _enableWakeLock(false);
 
     _isTranslating = false;

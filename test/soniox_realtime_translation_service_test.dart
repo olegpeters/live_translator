@@ -123,8 +123,18 @@ void main() {
       expect(sttConfigs.first['model'], 'stt-rt-v5');
       expect(sttConfigs.first['translation']['target_language'], 'ru');
 
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': 'Доброе утро',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
+
       final ttsConfigs = ttsChannel.jsonSent;
-      expect(ttsConfigs, hasLength(1));
+      expect(ttsConfigs.length, greaterThanOrEqualTo(1));
       expect(ttsConfigs.first['model'], 'tts-rt-v2');
       expect(ttsConfigs.first['language'], 'ru');
       expect(ttsConfigs.first['voice'], 'Daniel');
@@ -186,9 +196,13 @@ void main() {
       expect(await future, 'Доброе утро');
 
       final ttsSent = ttsChannel.jsonSent;
-      // Index 0 is the initial config; Index 1 is the forwarded text token
+      // Index 0 is the initial config; subsequent entries are the forwarded text tokens
       expect(ttsSent.length, greaterThanOrEqualTo(2));
-      expect(ttsSent.last['text'], 'Доброе утро');
+      final combinedTtsText = ttsSent
+          .skip(1)
+          .map((m) => m['text'] as String? ?? '')
+          .join();
+      expect(combinedTtsText, 'Доброе утро');
       expect(ttsSent.last['text_end'], isFalse);
     });
 
@@ -210,11 +224,177 @@ void main() {
       expect(delta.sampleRate, 24000);
     });
 
-    test('gracefulStop sends close markers to both STT and TTS', () async {
+    test('text with punctuation sends text_end false and maintains active stream', () async {
       await service.connect(
         apiKey: 'soniox-test-key',
         targetLanguage: 'ru',
       );
+
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': 'Здравствуйте.',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
+
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': ' Эм,',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
+
+      final ttsSent = ttsChannel.jsonSent;
+      // Index 0: config for stream-2
+      // Index 1: "Здравствуйте." (text_end: false)
+      // Index 2: " Эм," (text_end: false)
+      final textMessages = ttsSent.where((msg) => msg.containsKey('text')).toList();
+      expect(textMessages.length, equals(2));
+      expect(textMessages[0]['text'], equals('Здравствуйте.'));
+      expect(textMessages[0]['text_end'], isFalse);
+      expect(textMessages[0]['stream_id'], equals('stream-2'));
+      expect(textMessages[1]['text'], equals(' Эм,'));
+      expect(textMessages[1]['text_end'], isFalse);
+      expect(textMessages[1]['stream_id'], equals('stream-2'));
+    });
+
+    test('utterance end sends text_end true and new utterance starts new stream', () async {
+      await service.connect(
+        apiKey: 'soniox-test-key',
+        targetLanguage: 'ru',
+      );
+
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': 'Здравствуйте.',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
+
+      // Signal utterance end
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': '<end>',
+          }
+        ],
+      });
+      await pump();
+
+      final ttsSent1 = ttsChannel.jsonSent;
+      final endMsg = ttsSent1.last;
+      expect(endMsg['text_end'], isTrue);
+      expect(endMsg['stream_id'], equals('stream-2'));
+
+      // New utterance token should start stream-3
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': ' Понятно.',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
+
+      final ttsSent2 = ttsChannel.jsonSent;
+      final lastTextMsg = ttsSent2.last;
+      expect(lastTextMsg['stream_id'], equals('stream-3'));
+      expect(lastTextMsg['text'], equals(' Понятно.'));
+      expect(lastTextMsg['text_end'], isFalse);
+    });
+
+    test('interleaved audio chunks from stream-2 and stream-3 are emitted in strict stream sequence', () async {
+      await service.connect(
+        apiKey: 'soniox-test-key',
+        targetLanguage: 'ru',
+      );
+
+      final receivedAudio = <Uint8List>[];
+      final sub = service.onAudioDelta.listen((delta) {
+        receivedAudio.add(delta.bytes);
+      });
+
+      // Start stream-2
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Sentence one.', 'translation_status': 'translation'}
+        ],
+      });
+      await pump();
+
+      // Signal utterance end to start stream-3 on next text
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': '<end>'}
+        ],
+      });
+      await pump();
+
+      // Start stream-3
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Sentence two.', 'translation_status': 'translation'}
+        ],
+      });
+      await pump();
+
+      // Interleaved server response: stream-2 chunk A, stream-3 chunk 1, stream-2 chunk B (final), stream-3 chunk 2
+      ttsChannel.serverSend({
+        'stream_id': 'stream-2',
+        'audio': base64Encode([1, 1, 1]),
+      });
+      ttsChannel.serverSend({
+        'stream_id': 'stream-3',
+        'audio': base64Encode([2, 2, 2]),
+      });
+      ttsChannel.serverSend({
+        'stream_id': 'stream-2',
+        'audio': base64Encode([1, 1, 2]),
+        'audio_end': true,
+      });
+      ttsChannel.serverSend({
+        'stream_id': 'stream-3',
+        'audio': base64Encode([2, 2, 3]),
+        'audio_end': true,
+      });
+      await pump();
+
+      // Verify emitted sequence is [1,1,1] -> [1,1,2] -> [2,2,2] -> [2,2,3]
+      expect(receivedAudio, hasLength(4));
+      expect(receivedAudio[0], equals([1, 1, 1]));
+      expect(receivedAudio[1], equals([1, 1, 2]));
+      expect(receivedAudio[2], equals([2, 2, 2]));
+      expect(receivedAudio[3], equals([2, 2, 3]));
+
+      await sub.cancel();
+    });
+
+    test('gracefulStop sends close markers to both STT and active TTS stream', () async {
+      await service.connect(
+        apiKey: 'soniox-test-key',
+        targetLanguage: 'ru',
+      );
+
+      // Send a translation token to activate a TTS stream
+      sttChannel.serverSend({
+        'tokens': [
+          {
+            'text': 'Привет',
+            'translation_status': 'translation',
+          }
+        ],
+      });
+      await pump();
 
       service.sendAudioChunk(Uint8List(1000)..fillRange(0, 1000, 5));
       await service.gracefulStop();
