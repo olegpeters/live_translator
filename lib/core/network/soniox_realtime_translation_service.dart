@@ -269,6 +269,7 @@ class SonioxRealtimeTranslationService {
   }
 
   void _registerStream(String streamId) {
+    if (_completedStreams.contains(streamId)) return;
     if (!_streamOrder.contains(streamId)) {
       _streamOrder.add(streamId);
       _streamAudioBuffers[streamId] = [];
@@ -288,7 +289,7 @@ class SonioxRealtimeTranslationService {
 
   void _restartTtsInactivityTimer() {
     _ttsInactivityTimer?.cancel();
-    _ttsInactivityTimer = Timer(const Duration(milliseconds: 1800), () {
+    _ttsInactivityTimer = Timer(const Duration(milliseconds: 2700), () {
       if (_currentTtsStreamActive) {
         _log('TTS stream inactivity timeout; closing stream $_currentTtsStreamId');
         _flushTtsBuffer(force: true, isEnd: true);
@@ -468,6 +469,10 @@ class SonioxRealtimeTranslationService {
 
   void _processIncomingTtsAudio(String streamId, Uint8List audioBytes) {
     if (_audioDeltaController.isClosed) return;
+    if (_completedStreams.contains(streamId)) {
+      _log('Discarding late audio for completed stream $streamId');
+      return;
+    }
 
     _registerStream(streamId);
 
@@ -485,12 +490,17 @@ class SonioxRealtimeTranslationService {
 
   void _markStreamCompleted(String streamId) {
     _completedStreams.add(streamId);
+    if (_completedStreams.length > 100) {
+      _completedStreams.remove(_completedStreams.first);
+    }
     _flushStreamAudioQueue();
   }
 
   void _flushStreamAudioQueue() {
     while (_streamOrder.isNotEmpty) {
       final String headStream = _streamOrder.first;
+
+      // Flush any buffered audio for the current head stream
       final List<Uint8List>? buffer = _streamAudioBuffers[headStream];
       if (buffer != null && buffer.isNotEmpty) {
         for (final chunk in buffer) {
@@ -504,7 +514,6 @@ class SonioxRealtimeTranslationService {
       if (_completedStreams.contains(headStream)) {
         _streamOrder.removeAt(0);
         _streamAudioBuffers.remove(headStream);
-        _completedStreams.remove(headStream);
       } else {
         break;
       }

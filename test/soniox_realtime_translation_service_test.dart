@@ -379,6 +379,71 @@ void main() {
       await sub.cancel();
     });
 
+    test('late audio arriving for an already completed stream is discarded', () async {
+      await service.connect(
+        apiKey: 'soniox-test-key',
+        targetLanguage: 'ru',
+      );
+
+      final receivedAudio = <Uint8List>[];
+      final sub = service.onAudioDelta.listen((delta) {
+        receivedAudio.add(delta.bytes);
+      });
+
+      // Start stream-2
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Sentence one.', 'translation_status': 'translation'}
+        ],
+      });
+      await pump();
+
+      // Complete stream-2
+      ttsChannel.serverSend({
+        'stream_id': 'stream-2',
+        'audio': base64Encode([10, 10]),
+        'audio_end': true,
+      });
+      await pump();
+
+      expect(receivedAudio, hasLength(1));
+
+      // Start stream-3
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': '<end>'}
+        ],
+      });
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Sentence two.', 'translation_status': 'translation'}
+        ],
+      });
+      await pump();
+
+      // Send late audio for completed stream-2
+      ttsChannel.serverSend({
+        'stream_id': 'stream-2',
+        'audio': base64Encode([99, 99]),
+      });
+      await pump();
+
+      // Send valid audio for stream-3
+      ttsChannel.serverSend({
+        'stream_id': 'stream-3',
+        'audio': base64Encode([20, 20]),
+        'audio_end': true,
+      });
+      await pump();
+
+      // Verify late chunk [99, 99] was discarded!
+      expect(receivedAudio, hasLength(2));
+      expect(receivedAudio[0], equals([10, 10]));
+      expect(receivedAudio[1], equals([20, 20]));
+
+      await sub.cancel();
+    });
+
     test('gracefulStop sends close markers to both STT and active TTS stream', () async {
       await service.connect(
         apiKey: 'soniox-test-key',
