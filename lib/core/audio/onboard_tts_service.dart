@@ -7,17 +7,56 @@ class OnboardTtsService {
   String _language = 'ru';
   bool _isInitialized = false;
 
+  final List<String> _speechQueue = [];
+  bool _isProcessingQueue = false;
+  Completer<void>? _currentSpeakCompleter;
+
   OnboardTtsService({FlutterTts? flutterTts})
       : _flutterTts = flutterTts ?? FlutterTts() {
     _init();
   }
 
+  String _getFormattedLanguage(String code) {
+    switch (code.toLowerCase()) {
+      case 'ru':
+        return 'ru-RU';
+      case 'en':
+        return 'en-US';
+      case 'es':
+        return 'es-ES';
+      case 'fr':
+        return 'fr-FR';
+      case 'uk':
+        return 'uk-UA';
+      default:
+        return code;
+    }
+  }
+
   Future<void> _init() async {
     try {
-      await _flutterTts.setLanguage(_language);
+      final formattedLang = _getFormattedLanguage(_language);
+      await _flutterTts.setLanguage(formattedLang);
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
+      await _flutterTts.awaitSpeakCompletion(true);
+
+      _flutterTts.setCompletionHandler(() {
+        _completeCurrentSpeak();
+      });
+
+      _flutterTts.setErrorHandler((msg) {
+        if (kDebugMode) {
+          debugPrint('[OnboardTtsService] TTS error: $msg');
+        }
+        _completeCurrentSpeak();
+      });
+
+      _flutterTts.setCancelHandler(() {
+        _completeCurrentSpeak();
+      });
+
       if (!kIsWeb) {
         await _flutterTts.setSharedInstance(true);
       }
@@ -29,10 +68,18 @@ class OnboardTtsService {
     }
   }
 
+  void _completeCurrentSpeak() {
+    final completer = _currentSpeakCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
   Future<void> setLanguage(String languageCode) async {
     _language = languageCode;
     try {
-      await _flutterTts.setLanguage(_language);
+      final formatted = _getFormattedLanguage(_language);
+      await _flutterTts.setLanguage(formatted);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[OnboardTtsService] Failed to set language $languageCode: $e');
@@ -41,20 +88,64 @@ class OnboardTtsService {
   }
 
   Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
+    final cleanText = text.trim();
+    if (cleanText.isEmpty) return;
+
+    _speechQueue.add(cleanText);
+    _processQueue();
+  }
+
+  void _processQueue() async {
+    if (_isProcessingQueue) return;
+    _isProcessingQueue = true;
+
     if (!_isInitialized) {
       await _init();
     }
-    try {
-      await _flutterTts.speak(text);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[OnboardTtsService] Speak error: $e');
+
+    while (_speechQueue.isNotEmpty && _isProcessingQueue) {
+      final textToSpeak = _speechQueue.removeAt(0);
+      final completer = Completer<void>();
+      _currentSpeakCompleter = completer;
+
+      // Generous fallback timeout based on length to prevent hanging if TTS callback drops
+      final timeoutMs = ((textToSpeak.length / 6.0) * 1000).ceil() + 3000;
+
+      try {
+        final speakFuture = _flutterTts.speak(textToSpeak);
+
+        await Future.any([
+          speakFuture,
+          completer.future,
+          Future.delayed(Duration(milliseconds: timeoutMs)),
+        ]);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[OnboardTtsService] Speak error for "$textToSpeak": $e');
+        }
+      } finally {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+        _currentSpeakCompleter = null;
       }
+    }
+
+    _isProcessingQueue = false;
+  }
+
+  Future<void> drainQueue({Duration timeout = const Duration(seconds: 8)}) async {
+    final stopwatch = Stopwatch()..start();
+    while ((_speechQueue.isNotEmpty || _isProcessingQueue) &&
+        stopwatch.elapsed < timeout) {
+      await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
   Future<void> stop() async {
+    _speechQueue.clear();
+    _completeCurrentSpeak();
+    _isProcessingQueue = false;
     try {
       await _flutterTts.stop();
     } catch (e) {

@@ -460,7 +460,6 @@ class SonioxRealtimeTranslationService {
             }
           }
         }
-        _flushTtsBuffer(force: true);
       }
     } catch (e, stackTrace) {
       _log('Error handling STT message: $e', error: e, stackTrace: stackTrace);

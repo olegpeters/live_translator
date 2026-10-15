@@ -27,6 +27,7 @@ class TranslationProvider extends ChangeNotifier {
   bool _enableSourceTranscription = false;
   String _ttsEngine = 'soniox';
   String _sentenceBuffer = '';
+  Timer? _sentenceInactivityTimer;
   TranslationConnectionState _connectionState =
       TranslationConnectionState.disconnected;
 
@@ -101,7 +102,8 @@ class TranslationProvider extends ChangeNotifier {
       _targetTranscript += textDelta;
       if (_ttsEngine == 'onboard') {
         _sentenceBuffer += textDelta;
-        _processSentenceBuffer();
+        _restartSentenceInactivityTimer();
+        _processSentenceBuffer(force: false);
       }
       notifyListeners();
     });
@@ -118,36 +120,84 @@ class TranslationProvider extends ChangeNotifier {
     });
   }
 
-  void _processSentenceBuffer() {
-    while (true) {
-      int index = -1;
-      for (int i = 0; i < _sentenceBuffer.length; i++) {
-        final char = _sentenceBuffer[i];
-        if (char == '.' || char == '!' || char == '?' || char == '\n') {
-          index = i;
-          break;
-        }
+  void _restartSentenceInactivityTimer() {
+    _sentenceInactivityTimer?.cancel();
+    _sentenceInactivityTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (_sentenceBuffer.trim().isNotEmpty) {
+        _processSentenceBuffer(force: true);
       }
-      if (index == -1) {
-        if (_sentenceBuffer.length > 100) {
-          int lastSpace = _sentenceBuffer.lastIndexOf(' ', 100);
-          if (lastSpace != -1) {
-            final sentence = _sentenceBuffer.substring(0, lastSpace + 1).trim();
-            _sentenceBuffer = _sentenceBuffer.substring(lastSpace + 1);
-            if (sentence.isNotEmpty) {
-              onboardTtsService.speak(sentence);
-            }
-            continue;
-          }
-        }
-        break;
-      }
+    });
+  }
 
-      final sentence = _sentenceBuffer.substring(0, index + 1).trim();
-      _sentenceBuffer = _sentenceBuffer.substring(index + 1);
+  void _processSentenceBuffer({bool force = false}) {
+    if (force) {
+      _sentenceInactivityTimer?.cancel();
+      _sentenceInactivityTimer = null;
+      final sentence = _sentenceBuffer.trim();
+      _sentenceBuffer = '';
       if (sentence.isNotEmpty) {
         onboardTtsService.speak(sentence);
       }
+      return;
+    }
+
+    while (_sentenceBuffer.isNotEmpty) {
+      int sentenceIndex = -1;
+      for (int i = 0; i < _sentenceBuffer.length; i++) {
+        final char = _sentenceBuffer[i];
+        if (char == '.' || char == '!' || char == '?' || char == '\n' || char == '…') {
+          sentenceIndex = i;
+          break;
+        }
+      }
+
+      if (sentenceIndex != -1) {
+        final sentence = _sentenceBuffer.substring(0, sentenceIndex + 1).trim();
+        _sentenceBuffer = _sentenceBuffer.substring(sentenceIndex + 1);
+        if (sentence.isNotEmpty) {
+          onboardTtsService.speak(sentence);
+        }
+        continue;
+      }
+
+      // Check for clause punctuation boundaries if clause has enough words or length
+      int clauseIndex = -1;
+      for (int i = 0; i < _sentenceBuffer.length; i++) {
+        final char = _sentenceBuffer[i];
+        if (char == ',' || char == ';' || char == ':' || char == '—' || char == '-' || char == '»' || char == '"') {
+          final candidate = _sentenceBuffer.substring(0, i + 1).trim();
+          final wordCount = candidate.split(RegExp(r'\s+')).length;
+          if (wordCount >= 2 || candidate.length >= 8) {
+            clauseIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (clauseIndex != -1) {
+        final clause = _sentenceBuffer.substring(0, clauseIndex + 1).trim();
+        _sentenceBuffer = _sentenceBuffer.substring(clauseIndex + 1);
+        if (clause.isNotEmpty) {
+          onboardTtsService.speak(clause);
+        }
+        continue;
+      }
+
+      // If buffer accumulated >= 5 words without punctuation, flush up to last space
+      final words = _sentenceBuffer.trim().split(RegExp(r'\s+'));
+      if (words.length >= 5) {
+        int lastSpace = _sentenceBuffer.lastIndexOf(' ');
+        if (lastSpace != -1) {
+          final chunk = _sentenceBuffer.substring(0, lastSpace + 1).trim();
+          _sentenceBuffer = _sentenceBuffer.substring(lastSpace + 1);
+          if (chunk.isNotEmpty) {
+            onboardTtsService.speak(chunk);
+          }
+          continue;
+        }
+      }
+
+      break;
     }
   }
 
@@ -206,6 +256,9 @@ class TranslationProvider extends ChangeNotifier {
     _statusMessage = 'Stoppe...';
     notifyListeners();
 
+    _sentenceInactivityTimer?.cancel();
+    _sentenceInactivityTimer = null;
+
     await _audioRecordSubscription?.cancel();
     _audioRecordSubscription = null;
 
@@ -214,11 +267,8 @@ class TranslationProvider extends ChangeNotifier {
     await audioService.stopPlayback();
 
     if (_ttsEngine == 'onboard') {
-      final remaining = _sentenceBuffer.trim();
-      if (remaining.isNotEmpty) {
-        await onboardTtsService.speak(remaining);
-      }
-      _sentenceBuffer = '';
+      _processSentenceBuffer(force: true);
+      await onboardTtsService.drainQueue(timeout: const Duration(seconds: 8));
       await onboardTtsService.stop();
     }
 
@@ -243,12 +293,16 @@ class TranslationProvider extends ChangeNotifier {
   void clearTranscript() {
     _targetTranscript = '';
     _sourceTranscript = '';
+    _sentenceInactivityTimer?.cancel();
+    _sentenceInactivityTimer = null;
     _sentenceBuffer = '';
+    onboardTtsService.stop();
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _sentenceInactivityTimer?.cancel();
     _audioRecordSubscription?.cancel();
     _audioPlaybackSubscription?.cancel();
     _transcriptSubscription?.cancel();
