@@ -15,6 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _obscureApiKey = true;
   String _selectedLanguage = 'ru';
   String _selectedVoice = SettingsRepository.defaultVoice;
+  String _selectedTtsEngine = 'soniox';
   double _outputGain = SettingsRepository.defaultOutputGain;
   bool _enableSourceTranscription = false;
   bool _isLoading = true;
@@ -32,6 +33,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'id': 'Adrian', 'name': 'Adrian (Männlich)'},
   ];
 
+  final List<Map<String, String>> _ttsEngines = const [
+    {'id': 'soniox', 'name': 'Soniox API (Cloud-Streaming)'},
+    {'id': 'onboard', 'name': 'Onboard Android TTS (Lokal)'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final apiKey = await widget.settingsRepository.getApiKey();
     final language = await widget.settingsRepository.getTargetLanguage();
     final voice = await widget.settingsRepository.getVoice();
+    final ttsEngine = await widget.settingsRepository.getTtsEngine();
     final gain = await widget.settingsRepository.getOutputGain();
     final enableSourceTranscription =
         await widget.settingsRepository.getEnableSourceTranscription();
@@ -52,6 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       _selectedLanguage = language;
       _selectedVoice = voice;
+      _selectedTtsEngine = ttsEngine;
       _outputGain = gain;
       _enableSourceTranscription = enableSourceTranscription;
       _isLoading = false;
@@ -62,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
     await widget.settingsRepository.setVoice(_selectedVoice);
+    await widget.settingsRepository.setTtsEngine(_selectedTtsEngine);
     await widget.settingsRepository.setOutputGain(_outputGain);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
@@ -158,10 +167,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Text(voice['name']!),
                       );
                     }).toList(),
+                    onChanged: _selectedTtsEngine == 'soniox'
+                        ? (val) {
+                            if (val != null) {
+                              setState(() {
+                                _selectedVoice = val;
+                              });
+                            }
+                          }
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedTtsEngine,
+                    decoration: const InputDecoration(
+                      labelText: 'TTS Engine (Sprachausgabe)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _ttsEngines.map((engine) {
+                      return DropdownMenuItem<String>(
+                        value: engine['id'],
+                        child: Text(engine['name']!),
+                      );
+                    }).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() {
-                          _selectedVoice = val;
+                          _selectedTtsEngine = val;
                         });
                       }
                     },

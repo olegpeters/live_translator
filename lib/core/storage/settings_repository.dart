@@ -9,6 +9,7 @@ class SettingsRepository {
   static const String _keyOutputGain = 'output_gain';
   static const String _keyEnableSourceTranscription =
       'enable_source_transcription';
+  static const String _keyTtsEngine = 'tts_engine';
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -77,6 +78,16 @@ class SettingsRepository {
   Future<void> setEnableSourceTranscription(bool enabled) async {
     await init();
     await _prefs?.setBool(_keyEnableSourceTranscription, enabled);
+  }
+
+  Future<String> getTtsEngine() async {
+    await init();
+    return _prefs?.getString(_keyTtsEngine) ?? 'soniox';
+  }
+
+  Future<void> setTtsEngine(String engine) async {
+    await init();
+    await _prefs?.setString(_keyTtsEngine, engine);
   }
 
   /// Always returns 24000.
