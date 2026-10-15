@@ -129,6 +129,12 @@ class OnboardTtsService {
         }
         _currentSpeakCompleter = null;
       }
+
+      // On Android native, TTS completion fires when synthesis finishes in memory buffer.
+      // Adding a short inter-utterance delay prevents cutting off the ending speaker audio.
+      if (!kIsWeb) {
+        await Future.delayed(const Duration(milliseconds: 250));
+      }
     }
 
     _isProcessingQueue = false;

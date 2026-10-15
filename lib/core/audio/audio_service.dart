@@ -109,8 +109,8 @@ class AudioService {
   bool? _isRecording;
   bool _flushRequested = false;
 
-  /// Target minimum bytes buffered before starting a batch playback (~200ms at 24kHz PCM16 mono)
-  static const int minBatchBytes = 9600;
+  /// Target minimum bytes buffered before starting a batch playback (~300ms at 24kHz PCM16 mono for Android stability)
+  static const int minBatchBytes = 14400;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
@@ -126,7 +126,7 @@ class AudioService {
             stayAwake: true,
             contentType: AndroidContentType.speech,
             usageType: AndroidUsageType.media,
-            audioFocus: AndroidAudioFocus.gainTransient,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
             audioMode: AndroidAudioMode.normal,
             isSpeakerphoneOn: true,
           ),
@@ -358,6 +358,11 @@ class AudioService {
       _currentPlaybackCompleter = completer;
 
       final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
+      // On Android native hardware (AudioTrack), onPlayerComplete fires when bytes enter the buffer,
+      // before hardware output finishes. Adding a safety hardware buffer tail padding prevents clipping.
+      final int hardwareBufferTailPaddingMs = kIsWeb ? 0 : 250;
+      final int targetDurationMs = durationMs + hardwareBufferTailPaddingMs;
+
       final stopwatch = Stopwatch()..start();
 
       StreamSubscription? completeSub;
@@ -371,7 +376,7 @@ class AudioService {
         await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
 
         await completer.future.timeout(
-          Duration(milliseconds: durationMs + 200),
+          Duration(milliseconds: targetDurationMs + 200),
           onTimeout: () {
             if (!completer.isCompleted) {
               completer.complete();
@@ -390,10 +395,10 @@ class AudioService {
         _currentPlaybackCompleter = null;
       }
 
-      // Ensure we never cut off playback before the physical audio duration has elapsed
+      // Ensure we never cut off playback before physical audio duration + hardware tail padding elapsed
       final elapsedMs = stopwatch.elapsedMilliseconds;
-      if (elapsedMs < durationMs) {
-        final remainingMs = durationMs - elapsedMs;
+      if (elapsedMs < targetDurationMs) {
+        final remainingMs = targetDurationMs - elapsedMs;
         await Future.delayed(Duration(milliseconds: remainingMs));
       }
     }

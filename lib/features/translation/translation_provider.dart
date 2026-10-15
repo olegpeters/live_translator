@@ -167,7 +167,7 @@ class TranslationProvider extends ChangeNotifier {
         if (char == ',' || char == ';' || char == ':' || char == '—' || char == '-' || char == '»' || char == '"') {
           final candidate = _sentenceBuffer.substring(0, i + 1).trim();
           final wordCount = candidate.split(RegExp(r'\s+')).length;
-          if (wordCount >= 2 || candidate.length >= 8) {
+          if (wordCount >= 5 || candidate.length >= 18) {
             clauseIndex = i;
             break;
           }
@@ -183,9 +183,9 @@ class TranslationProvider extends ChangeNotifier {
         continue;
       }
 
-      // If buffer accumulated >= 5 words without punctuation, flush up to last space
+      // If buffer accumulated >= 8 words without punctuation, flush up to last space
       final words = _sentenceBuffer.trim().split(RegExp(r'\s+'));
-      if (words.length >= 5) {
+      if (words.length >= 8) {
         int lastSpace = _sentenceBuffer.lastIndexOf(' ');
         if (lastSpace != -1) {
           final chunk = _sentenceBuffer.substring(0, lastSpace + 1).trim();

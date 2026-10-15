@@ -314,8 +314,7 @@ class SonioxRealtimeTranslationService {
         currentStr.contains('»') ||
         currentStr.contains('"');
 
-    // Flush if we hit punctuation OR if we accumulated at least 4 words
-    if (hasBoundary || _ttsBufferWordCount >= 4) {
+    if (hasBoundary || _ttsBufferWordCount >= 1) {
       _flushTtsBuffer(force: false);
     }
   }
@@ -332,7 +331,7 @@ class SonioxRealtimeTranslationService {
     if (force || isEnd) {
       if (str.trim().isNotEmpty) {
         _sendTextToTts(str, textEnd: isEnd);
-      } else if (isEnd) {
+      } else if (isEnd && _currentTtsStreamActive) {
         _sendTextToTts('', textEnd: true);
       }
       _ttsTextBuffer.clear();
