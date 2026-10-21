@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../core/audio/adaptive_tts_buffer.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/audio/onboard_tts_service.dart';
 import '../../core/network/soniox_realtime_translation_service.dart';
@@ -11,6 +12,7 @@ class TranslationProvider extends ChangeNotifier {
   final SonioxRealtimeTranslationService translationService;
   final AudioService audioService;
   final OnboardTtsService onboardTtsService;
+  final AdaptiveTtsBuffer adaptiveTtsBuffer;
 
   StreamSubscription? _audioRecordSubscription;
   StreamSubscription? _audioPlaybackSubscription;
@@ -18,6 +20,7 @@ class TranslationProvider extends ChangeNotifier {
   StreamSubscription? _sourceTranscriptSubscription;
   StreamSubscription? _networkStateSubscription;
   StreamSubscription? _audioLevelSubscription;
+  StreamSubscription? _bufferStatusSubscription;
 
   bool _isTranslating = false;
   String _statusMessage = 'Inaktiv';
@@ -30,6 +33,8 @@ class TranslationProvider extends ChangeNotifier {
   Timer? _sentenceInactivityTimer;
   TranslationConnectionState _connectionState =
       TranslationConnectionState.disconnected;
+  int _reconnectAttempts = 0;
+  bool _isStopping = false;
 
   bool get isTranslating => _isTranslating;
   String get statusMessage => _statusMessage;
@@ -39,12 +44,20 @@ class TranslationProvider extends ChangeNotifier {
   bool get enableSourceTranscription => _enableSourceTranscription;
   TranslationConnectionState get connectionState => _connectionState;
 
+  double get audioInFlightSeconds => adaptiveTtsBuffer.currentBufferDurationSeconds;
+  double get targetDelaySeconds => adaptiveTtsBuffer.targetDelaySeconds;
+  double get currentPlaybackSpeed => adaptiveTtsBuffer.currentPlaybackSpeed;
+  int get ttsOutOfOrderEvents => adaptiveTtsBuffer.outOfOrderEvents;
+  bool get isPreRolling => adaptiveTtsBuffer.isPreRolling;
+
   TranslationProvider({
     required this.settingsRepository,
     required this.translationService,
     required this.audioService,
     OnboardTtsService? onboardTtsService,
-  }) : onboardTtsService = onboardTtsService ?? OnboardTtsService() {
+    AdaptiveTtsBuffer? adaptiveTtsBuffer,
+  })  : onboardTtsService = onboardTtsService ?? OnboardTtsService(),
+        adaptiveTtsBuffer = adaptiveTtsBuffer ?? AdaptiveTtsBuffer() {
     _initListeners();
     _loadSettings();
   }
@@ -77,15 +90,30 @@ class TranslationProvider extends ChangeNotifier {
           break;
         case TranslationConnectionState.closed:
         case TranslationConnectionState.disconnected:
-          _statusMessage = 'Inaktiv';
-          _isTranslating = false;
-          _enableWakeLock(false);
+          if (_isTranslating && !_isStopping) {
+            _handleUnexpectedDisconnect();
+          } else {
+            _statusMessage = 'Inaktiv';
+            _isTranslating = false;
+            _enableWakeLock(false);
+          }
           break;
         case TranslationConnectionState.error:
-          _statusMessage = 'Verbindungsfehler';
-          _isTranslating = false;
-          _enableWakeLock(false);
+          if (_isTranslating && !_isStopping) {
+            _handleUnexpectedDisconnect();
+          } else {
+            _statusMessage = 'Verbindungsfehler';
+            _isTranslating = false;
+            _enableWakeLock(false);
+          }
           break;
+      }
+      notifyListeners();
+    });
+
+    _bufferStatusSubscription = adaptiveTtsBuffer.onStatusChanged.listen((_) {
+      if (adaptiveTtsBuffer.hasAudioToPlay) {
+        _pumpAudioFromBuffer();
       }
       notifyListeners();
     });
@@ -93,7 +121,15 @@ class TranslationProvider extends ChangeNotifier {
     _audioPlaybackSubscription =
         translationService.onAudioDelta.listen((delta) {
       if (_ttsEngine == 'soniox') {
-        audioService.playAudioDelta(delta.bytes, sampleRate: delta.sampleRate);
+        adaptiveTtsBuffer.addChunk(
+          SequencedAudioDelta(
+            bytes: delta.bytes,
+            sampleRate: delta.sampleRate,
+            sequenceNumber: delta.sequenceNumber,
+            streamId: delta.streamId,
+          ),
+        );
+        _pumpAudioFromBuffer();
       }
     });
 
@@ -118,6 +154,12 @@ class TranslationProvider extends ChangeNotifier {
       _audioLevel = level;
       notifyListeners();
     });
+  }
+
+  Future<void> _pumpAudioFromBuffer() async {
+    if (adaptiveTtsBuffer.hasAudioToPlay) {
+      await audioService.pumpFromBuffer(adaptiveTtsBuffer);
+    }
   }
 
   void _restartSentenceInactivityTimer() {
@@ -201,7 +243,46 @@ class TranslationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _handleUnexpectedDisconnect() async {
+    if (!_isTranslating || _isStopping) return;
+
+    if (_reconnectAttempts < 3) {
+      _reconnectAttempts++;
+      _statusMessage = 'Verbindung unterbrochen (Versuch $_reconnectAttempts/3)...';
+      notifyListeners();
+
+      await Future.delayed(Duration(seconds: _reconnectAttempts));
+      if (_isTranslating && !_isStopping) {
+        try {
+          final apiKey = await settingsRepository.getApiKey();
+          final targetLanguage = await settingsRepository.getTargetLanguage();
+          final voice = await settingsRepository.getVoice();
+          if (apiKey != null && apiKey.isNotEmpty) {
+            await translationService.connect(
+              apiKey: apiKey.trim(),
+              targetLanguage: targetLanguage,
+              voice: voice,
+              enableSourceTranscription: _enableSourceTranscription,
+            );
+            _reconnectAttempts = 0;
+            return;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[TranslationProvider] Reconnect failed: $e');
+          }
+        }
+      }
+    }
+
+    _statusMessage = 'Verbindung getrennt.';
+    await stopTranslation();
+  }
+
   Future<void> startTranslation() async {
+    _reconnectAttempts = 0;
+    _isStopping = false;
+
     final apiKey = await settingsRepository.getApiKey();
     if (apiKey == null || apiKey.trim().isEmpty) {
       _statusMessage = 'Fehler: Keinen API-Key in den Einstellungen hinterlegt!';
@@ -223,6 +304,7 @@ class TranslationProvider extends ChangeNotifier {
     _targetTranscript = '';
     _sourceTranscript = '';
     _sentenceBuffer = '';
+    adaptiveTtsBuffer.reset();
     _isTranslating = true;
     _statusMessage = 'Initialisiere...';
     notifyListeners();
@@ -253,11 +335,15 @@ class TranslationProvider extends ChangeNotifier {
   }
 
   Future<void> stopTranslation() async {
+    _isStopping = true;
     _statusMessage = 'Stoppe...';
     notifyListeners();
 
     _sentenceInactivityTimer?.cancel();
     _sentenceInactivityTimer = null;
+
+    adaptiveTtsBuffer.flushPreRoll();
+    await _pumpAudioFromBuffer();
 
     await _audioRecordSubscription?.cancel();
     _audioRecordSubscription = null;
@@ -309,6 +395,8 @@ class TranslationProvider extends ChangeNotifier {
     _sourceTranscriptSubscription?.cancel();
     _networkStateSubscription?.cancel();
     _audioLevelSubscription?.cancel();
+    _bufferStatusSubscription?.cancel();
+    adaptiveTtsBuffer.dispose();
     onboardTtsService.stop();
     _enableWakeLock(false);
     super.dispose();

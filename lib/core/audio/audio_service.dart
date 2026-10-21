@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import 'adaptive_tts_buffer.dart';
 
 /// Converts raw 16-bit PCM mono bytes into a valid WAV format with a 44-byte RIFF header.
 Uint8List pcmToWav(
@@ -82,6 +83,35 @@ Uint8List amplifyPcm16(Uint8List pcmBytes, double gain) {
   return amplifiedBytes;
 }
 
+/// Applies a smooth 2ms linear fade-in and fade-out to 16-bit PCM mono bytes.
+/// This eliminates DC-offset step pops and cracking artifacts at chunk boundaries.
+Uint8List applyPcm16EdgeSmoothing(Uint8List pcmBytes, {int fadeSamples = 48}) {
+  final int totalSamples = pcmBytes.length ~/ 2;
+  if (totalSamples <= fadeSamples * 2 || fadeSamples <= 0) return pcmBytes;
+
+  final Uint8List smoothedBytes = Uint8List.fromList(pcmBytes);
+  final ByteData byteData = ByteData.sublistView(smoothedBytes);
+
+  // Fade-in: first fadeSamples
+  for (int i = 0; i < fadeSamples; i++) {
+    final double factor = i / fadeSamples;
+    final int sample = byteData.getInt16(i * 2, Endian.little);
+    final int smoothed = (sample * factor).round().clamp(-32768, 32767);
+    byteData.setInt16(i * 2, smoothed, Endian.little);
+  }
+
+  // Fade-out: last fadeSamples
+  for (int i = 0; i < fadeSamples; i++) {
+    final int sampleIndex = totalSamples - fadeSamples + i;
+    final double factor = (fadeSamples - i) / fadeSamples;
+    final int sample = byteData.getInt16(sampleIndex * 2, Endian.little);
+    final int smoothed = (sample * factor).round().clamp(-32768, 32767);
+    byteData.setInt16(sampleIndex * 2, smoothed, Endian.little);
+  }
+
+  return smoothedBytes;
+}
+
 class _PcmChunk {
   final Uint8List bytes;
   final int sampleRate;
@@ -95,6 +125,23 @@ class AudioService {
 
   /// Digital gain multiplier for output audio playback (e.g. 1.0 = 100%, 2.0 = 200%).
   double outputGain = 2.0;
+
+  /// Playback speed rate multiplier (1.0 = normal, 1.3 = 30% faster).
+  double currentPlaybackRate = 1.0;
+
+  Future<void> setPlaybackRate(double rate) async {
+    final clampedRate = rate.clamp(1.0, 1.3);
+    if ((currentPlaybackRate - clampedRate).abs() > 0.01) {
+      currentPlaybackRate = clampedRate;
+      try {
+        await _audioPlayer.setPlaybackRate(currentPlaybackRate);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[AudioService] Failed to set playback rate: $e');
+        }
+      }
+    }
+  }
 
   StreamSubscription<Uint8List>? _recordSubscription;
   final _audioStreamController = StreamController<Uint8List>.broadcast();
@@ -111,6 +158,9 @@ class AudioService {
 
   /// Target minimum bytes buffered before starting a batch playback (~300ms at 24kHz PCM16 mono for Android stability)
   static const int minBatchBytes = 14400;
+
+  /// Maximum bytes to batch in a single play() call (~1.0s at 24kHz PCM16 mono)
+  static const int maxBatchBytes = 48000;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
@@ -277,6 +327,26 @@ class AudioService {
     }
   }
 
+  Future<void> pumpFromBuffer(AdaptiveTtsBuffer buffer) async {
+    if (_playing) return;
+    _playing = true;
+    _runPlaybackLoop(buffer);
+  }
+
+  void _replenishQueueFromBuffer(AdaptiveTtsBuffer buffer) {
+    int currentBytes = _queue.fold(0, (sum, c) => sum + c.bytes.length);
+    while (currentBytes < maxBatchBytes && buffer.hasAudioToPlay) {
+      final chunk = buffer.popNextChunk();
+      if (chunk == null) break;
+      setPlaybackRate(buffer.currentPlaybackSpeed);
+      final processedBytes = outputGain != 1.0
+          ? amplifyPcm16(chunk.bytes, outputGain)
+          : chunk.bytes;
+      _queue.add(_PcmChunk(processedBytes, chunk.sampleRate));
+      currentBytes += processedBytes.length;
+    }
+  }
+
   Future<void> playAudioDelta(Uint8List pcmBytes,
       {int sampleRate = inputSampleRate}) async {
     if (pcmBytes.isEmpty) {
@@ -291,23 +361,26 @@ class AudioService {
     _startPlaybackLoop();
   }
 
-  void _startPlaybackLoop() {
+  void _startPlaybackLoop([AdaptiveTtsBuffer? buffer]) {
     if (_playing) return;
     _playing = true;
-    _runPlaybackLoop();
+    _runPlaybackLoop(buffer);
   }
 
-  Future<void> _runPlaybackLoop() async {
-    bool isFirstBatch = true;
+  Future<void> _runPlaybackLoop([AdaptiveTtsBuffer? buffer]) async {
     while (_playing) {
+      if (buffer != null) {
+        _replenishQueueFromBuffer(buffer);
+      }
+
       if (_queue.isEmpty) {
         break;
       }
 
       final int sampleRate = _queue.first.sampleRate;
 
-      // Initial jitter buffer: wait briefly for more chunks ONLY on the first batch when starting from idle
-      if (!_flushRequested && isFirstBatch) {
+      // Jitter buffer: wait briefly for more chunks if current queue is below minBatchBytes
+      if (!_flushRequested) {
         int totalQueueBytes = _queue
             .where((c) => c.sampleRate == sampleRate)
             .fold(0, (sum, c) => sum + c.bytes.length);
@@ -318,10 +391,12 @@ class AudioService {
 
         while (_playing &&
             !_flushRequested &&
-            _queue.isNotEmpty &&
-            _queue.first.sampleRate == sampleRate &&
             totalQueueBytes < minBatchBytes &&
+            (buffer == null || buffer.hasAudioToPlay || buffer.currentBufferDurationSeconds > 0) &&
             waitedMs < maxWaitMs) {
+          if (buffer != null) {
+            _replenishQueueFromBuffer(buffer);
+          }
           await Future.delayed(const Duration(milliseconds: waitStepMs));
           waitedMs += waitStepMs;
           totalQueueBytes = _queue
@@ -330,39 +405,45 @@ class AudioService {
         }
       }
 
-      isFirstBatch = false;
       _flushRequested = false;
+
+      if (buffer != null) {
+        _replenishQueueFromBuffer(buffer);
+      }
 
       if (!_playing || _queue.isEmpty) {
         break;
       }
 
-      // Batch consecutive chunks that share the same sample rate.
+      // Batch consecutive chunks that share the same sample rate up to maxBatchBytes.
       final chunks = <Uint8List>[];
-      while (_queue.isNotEmpty && _queue.first.sampleRate == sampleRate) {
-        chunks.add(_queue.removeAt(0).bytes);
+      int batchedBytes = 0;
+      while (_queue.isNotEmpty &&
+          _queue.first.sampleRate == sampleRate &&
+          batchedBytes < maxBatchBytes) {
+        final chunk = _queue.removeAt(0);
+        chunks.add(chunk.bytes);
+        batchedBytes += chunk.bytes.length;
       }
 
       final int totalLength = chunks.fold(0, (sum, c) => sum + c.length);
       if (totalLength == 0) continue;
 
-      final Uint8List pcmBytes = Uint8List(totalLength);
+      final Uint8List rawPcm = Uint8List(totalLength);
       int offset = 0;
       for (final chunk in chunks) {
-        pcmBytes.setRange(offset, offset + chunk.length, chunk);
+        rawPcm.setRange(offset, offset + chunk.length, chunk);
         offset += chunk.length;
       }
+
+      // Apply 2ms edge smoothing to eliminate DC-offset step clicks/pops at batch boundaries
+      final Uint8List pcmBytes = applyPcm16EdgeSmoothing(rawPcm, fadeSamples: 48);
 
       final wavBytes = pcmToWav(pcmBytes, sampleRate: sampleRate);
       final completer = Completer<void>();
       _currentPlaybackCompleter = completer;
 
-      final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2)).ceil();
-      // On Android native hardware (AudioTrack), onPlayerComplete fires when bytes enter the buffer,
-      // before hardware output finishes. Adding a safety hardware buffer tail padding prevents clipping.
-      final int hardwareBufferTailPaddingMs = kIsWeb ? 0 : 250;
-      final int targetDurationMs = durationMs + hardwareBufferTailPaddingMs;
-
+      final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2 * currentPlaybackRate)).ceil();
       final stopwatch = Stopwatch()..start();
 
       StreamSubscription? completeSub;
@@ -376,7 +457,7 @@ class AudioService {
         await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
 
         await completer.future.timeout(
-          Duration(milliseconds: targetDurationMs + 200),
+          Duration(milliseconds: durationMs + 300),
           onTimeout: () {
             if (!completer.isCompleted) {
               completer.complete();
@@ -395,17 +476,19 @@ class AudioService {
         _currentPlaybackCompleter = null;
       }
 
-      // Ensure we never cut off playback before physical audio duration + hardware tail padding elapsed
+      // Ensure we never cut off playback before physical audio duration has elapsed.
       final elapsedMs = stopwatch.elapsedMilliseconds;
-      if (elapsedMs < targetDurationMs) {
-        final remainingMs = targetDurationMs - elapsedMs;
+      if (elapsedMs < durationMs) {
+        final remainingMs = durationMs - elapsedMs;
         await Future.delayed(Duration(milliseconds: remainingMs));
       }
     }
     _playing = false;
     _flushRequested = false;
 
-    if (_queue.isNotEmpty) {
+    if (buffer != null && buffer.hasAudioToPlay) {
+      pumpFromBuffer(buffer);
+    } else if (_queue.isNotEmpty) {
       _startPlaybackLoop();
     }
   }

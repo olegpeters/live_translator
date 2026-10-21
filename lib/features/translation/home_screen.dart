@@ -85,6 +85,109 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
 
+                // Adaptive TTS Buffer Status Card
+                if (isTranslating) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 1,
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.graphic_eq,
+                                    size: 20,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'TTS Audio-Puffer & Sync',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: provider.currentPlaybackSpeed > 1.01
+                                      ? Colors.orange.shade100
+                                      : Colors.blue.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: provider.currentPlaybackSpeed > 1.01
+                                        ? Colors.orange.shade900
+                                        : Colors.blue.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                provider.isPreRolling
+                                    ? 'Puffern (Start-Versatz: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
+                                    : 'Audio in Flight: ${provider.audioInFlightSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (provider.ttsOutOfOrderEvents > 0)
+                                Text(
+                                  'Anpassungen: ${provider.ttsOutOfOrderEvents}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (provider.audioInFlightSeconds /
+                                      provider.targetDelaySeconds)
+                                  .clamp(0.0, 1.0),
+                              minHeight: 8,
+                              backgroundColor: Colors.blue.shade100,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                provider.isPreRolling
+                                    ? Colors.orange
+                                    : (provider.audioInFlightSeconds >=
+                                            provider.targetDelaySeconds
+                                        ? Colors.blue.shade700
+                                        : Colors.lightBlue),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 16),
 
                 // Audio Level Indicator (Input Volume Bar)

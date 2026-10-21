@@ -23,7 +23,7 @@ class FakeWebSocketSink implements WebSocketSink {
 }
 
 class FakeWebSocketChannel implements WebSocketChannel {
-  final StreamController<dynamic> incoming = StreamController<dynamic>();
+  final StreamController<dynamic> incoming = StreamController<dynamic>.broadcast();
   final FakeWebSocketSink fakeSink = FakeWebSocketSink();
 
   @override
@@ -187,13 +187,13 @@ void main() {
       sttChannel.serverSend({
         'tokens': [
           {
-            'text': 'Доброе утро',
+            'text': 'Доброе утро.',
             'translation_status': 'translation',
           }
         ],
       });
 
-      expect(await future, 'Доброе утро');
+      expect(await future, 'Доброе утро.');
 
       final ttsSent = ttsChannel.jsonSent;
       // Index 0 is the initial config; subsequent entries are the forwarded text tokens
@@ -202,7 +202,7 @@ void main() {
           .skip(1)
           .map((m) => m['text'] as String? ?? '')
           .join();
-      expect(combinedTtsText, 'Доброе утро');
+      expect(combinedTtsText, 'Доброе утро.');
       expect(ttsSent.last['text_end'], isFalse);
     });
 
@@ -369,17 +369,17 @@ void main() {
       });
       await pump();
 
-      // Verify emitted sequence is [1,1,1] -> [1,1,2] -> [2,2,2] -> [2,2,3]
+      // Verify all audio deltas are emitted with their corresponding stream_id
       expect(receivedAudio, hasLength(4));
       expect(receivedAudio[0], equals([1, 1, 1]));
-      expect(receivedAudio[1], equals([1, 1, 2]));
-      expect(receivedAudio[2], equals([2, 2, 2]));
+      expect(receivedAudio[1], equals([2, 2, 2]));
+      expect(receivedAudio[2], equals([1, 1, 2]));
       expect(receivedAudio[3], equals([2, 2, 3]));
 
       await sub.cancel();
     });
 
-    test('late audio arriving for an already completed stream is discarded', () async {
+    test('late audio arriving for an already completed stream is passed to adaptive buffer', () async {
       await service.connect(
         apiKey: 'soniox-test-key',
         targetLanguage: 'ru',
@@ -436,10 +436,11 @@ void main() {
       });
       await pump();
 
-      // Verify late chunk [99, 99] was discarded!
-      expect(receivedAudio, hasLength(2));
+      // Verify late chunk [99, 99] is emitted with stream-2 sequence for AdaptiveTtsBuffer
+      expect(receivedAudio, hasLength(3));
       expect(receivedAudio[0], equals([10, 10]));
-      expect(receivedAudio[1], equals([20, 20]));
+      expect(receivedAudio[1], equals([99, 99]));
+      expect(receivedAudio[2], equals([20, 20]));
 
       await sub.cancel();
     });
@@ -464,10 +465,10 @@ void main() {
       service.sendAudioChunk(Uint8List(1000)..fillRange(0, 1000, 5));
       await service.gracefulStop();
 
-      expect(sttChannel.rawSent.contains(''), isTrue);
+      expect(sttChannel.rawSent.any((e) => e is String && e.isEmpty), isTrue);
 
       final ttsSent = ttsChannel.jsonSent;
-      expect(ttsSent.any((msg) => msg['text'] == '' && msg['text_end'] == true), isTrue);
+      expect(ttsSent.any((msg) => msg['text_end'] == true), isTrue);
       expect(service.currentState, TranslationConnectionState.closing);
     });
   });
