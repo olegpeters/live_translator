@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import '../logging/app_logger.dart';
 import 'adaptive_tts_buffer.dart';
 
 /// Converts raw 16-bit PCM mono bytes into a valid WAV format with a 44-byte RIFF header.
@@ -136,9 +137,7 @@ class AudioService {
       try {
         await _audioPlayer.setPlaybackRate(currentPlaybackRate);
       } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[AudioService] Failed to set playback rate: $e');
-        }
+        AppLogger.warning('Failed to set playback rate: $e', tag: 'AudioService');
       }
     }
   }
@@ -192,9 +191,7 @@ class AudioService {
       );
       _audioPlayer.setVolume(1.0);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AudioService] Failed to set audio context: $e');
-      }
+      AppLogger.warning('Failed to set audio context: $e', tag: 'AudioService');
     }
   }
 
@@ -263,22 +260,16 @@ class AudioService {
           }
         },
         onError: (error, stackTrace) {
-          if (kDebugMode) {
-            debugPrint('[AudioService] Recording stream error: $error');
-          }
+          AppLogger.error('Recording stream error: $error', tag: 'AudioService', stackTrace: stackTrace);
           _handleRecordingError();
         },
         onDone: () {
-          if (kDebugMode) {
-            debugPrint('[AudioService] Recording stream done');
-          }
+          AppLogger.warning('Recording stream done', tag: 'AudioService');
           _handleRecordingError();
         },
       );
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AudioService] Failed to start recording stream: $e');
-      }
+      AppLogger.error('Failed to start recording stream: $e', tag: 'AudioService');
       _handleRecordingError();
       rethrow;
     }
@@ -289,9 +280,7 @@ class AudioService {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (isRecording) {
           _startStreamInternal().catchError((e) {
-            if (kDebugMode) {
-              debugPrint('[AudioService] Error restarting recording stream: $e');
-            }
+            AppLogger.error('Error restarting recording stream: $e', tag: 'AudioService');
           });
         }
       });
@@ -465,9 +454,7 @@ class AudioService {
           },
         );
       } catch (e, st) {
-        if (kDebugMode) {
-          debugPrint('[AudioService] Playback error: $e\n$st');
-        }
+        AppLogger.error('Playback error: $e', tag: 'AudioService', stackTrace: st);
         if (!completer.isCompleted) {
           completer.complete();
         }
@@ -490,6 +477,8 @@ class AudioService {
       pumpFromBuffer(buffer);
     } else if (_queue.isNotEmpty) {
       _startPlaybackLoop();
+    } else if (buffer != null) {
+      buffer.rearmPreRoll();
     }
   }
 

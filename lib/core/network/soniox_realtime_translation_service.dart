@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../logging/app_logger.dart';
+
 enum TranslationConnectionState {
   disconnected,
   connecting,
@@ -112,16 +114,13 @@ class SonioxRealtimeTranslationService {
       error: error,
       stackTrace: stackTrace,
     );
-    if (kDebugMode) {
-      if (error != null) {
-        debugPrint('[SonioxRealtimeTranslationService] $message: $error');
-        if (stackTrace != null) {
-          debugPrint(stackTrace.toString());
-        }
-      } else {
-        debugPrint('[SonioxRealtimeTranslationService] $message');
-      }
-    }
+    AppLogger.log(
+      message,
+      tag: 'SonioxService',
+      level: error != null ? LogLevel.error : LogLevel.info,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   void _setState(TranslationConnectionState state) {
@@ -392,16 +391,7 @@ class SonioxRealtimeTranslationService {
 
   void _startKeepAliveTimer() {
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (_currentState == TranslationConnectionState.connected) {
-        try {
-          _sttChannel?.sink.add(jsonEncode({'type': 'ping'}));
-          _ttsChannel?.sink.add(jsonEncode({'type': 'ping'}));
-        } catch (e) {
-          _log('Error sending keep-alive ping: $e');
-        }
-      }
-    });
+    // Keep-alive timer if needed, avoiding invalid JSON schema payloads like {'type': 'ping'}
   }
 
   Future<void> _reconnectTtsChannel() async {
@@ -410,6 +400,11 @@ class SonioxRealtimeTranslationService {
     try {
       await _ttsSubscription?.cancel();
       _ttsSubscription = null;
+      try {
+        await _ttsChannel?.sink.close();
+      } catch (_) {}
+      _ttsChannel = null;
+
       final ttsUri = Uri.parse(_ttsBaseUrl);
       final headers = {'Authorization': 'Bearer $_apiKey'};
       final protocols = ['soniox-api-key', _apiKey];
@@ -431,7 +426,6 @@ class SonioxRealtimeTranslationService {
         },
       );
       _currentTtsStreamActive = false;
-      _startNewTtsStream();
       _log('TTS WebSocket successfully reconnected');
     } catch (e) {
       _log('Failed to reconnect TTS WebSocket: $e');

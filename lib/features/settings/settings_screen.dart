@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/logging/app_logger.dart';
 import '../../core/storage/settings_repository.dart';
+import 'log_viewer_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsRepository settingsRepository;
@@ -135,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
+                    initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Zielsprache',
                       border: OutlineInputBorder(),
@@ -156,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedVoice,
+                    initialValue: _selectedVoice,
                     decoration: const InputDecoration(
                       labelText: 'Soniox Stimme (TTS Voice)',
                       border: OutlineInputBorder(),
@@ -179,7 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedTtsEngine,
+                    initialValue: _selectedTtsEngine,
                     decoration: const InputDecoration(
                       labelText: 'TTS Engine (Sprachausgabe)',
                       border: OutlineInputBorder(),
@@ -251,6 +253,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       });
                     },
                     contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<int>(
+                    valueListenable: AppLogger.logCountNotifier,
+                    builder: (context, logCount, _) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.article_outlined),
+                        title: Text('App-Logs / Protokoll ($logCount Einträge)'),
+                        subtitle: const Text(
+                          'Sitzungsprotokoll seit App-Start anzeigen, kopieren oder als .txt Datei auf dem Handy speichern.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LogViewerScreen(),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

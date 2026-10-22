@@ -42,13 +42,13 @@ class AdaptiveBufferStatus {
 /// Adaptive TTS Jitter & Reordering Buffer.
 ///
 /// Features:
-/// 1. Pre-rolls initial 0.4 seconds (400ms) for low-latency live audio streaming.
+/// 1. Pre-rolls initial target buffer (2.0s) for smooth jitter-free live audio streaming.
 /// 2. Sorts incoming audio deltas by sequence number to fix out-of-order deliveries.
-/// 3. Adjusts target delay pessimistically (up to 1.5s) upon detecting out-of-order/late fragments.
+/// 3. Adjusts target delay pessimistically (up to 10s) upon detecting out-of-order/late fragments.
 /// 4. Gradually accelerates playback speed (up to 1.3x) when buffer level allows, to catch up with live speech.
 class AdaptiveTtsBuffer {
-  static const double initialTargetDelay = 0.4; // 400ms initial pre-roll for low latency
-  static const double maxTargetDelay = 1.2;     // 1.2s upper limit for real-time translation
+  static const double initialTargetDelay = 2.0; // 2.0s initial pre-roll buffer
+  static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
   static const double minPlaybackSpeed = 1.0;
   static const double maxPlaybackSpeed = 1.3;
   static const double speedStep = 0.05;
@@ -138,11 +138,11 @@ class AdaptiveTtsBuffer {
       _queue.insert(insertIndex, delta);
     }
 
-    // Check if pre-roll requirement is met or timeout elapsed (max 250ms wait)
+    // Check if pre-roll requirement is met or fallback timeout elapsed (2500ms)
     if (_isPreRolling) {
       _preRollStartTime ??= DateTime.now();
       final waitedMs = DateTime.now().difference(_preRollStartTime!).inMilliseconds;
-      if (currentBufferDurationSeconds >= _targetDelaySeconds || waitedMs >= 250) {
+      if (currentBufferDurationSeconds >= _targetDelaySeconds || waitedMs >= 2500) {
         _isPreRolling = false;
         _preRollStartTime = null;
       }
@@ -171,6 +171,15 @@ class AdaptiveTtsBuffer {
     _targetDelaySeconds = newTarget;
   }
 
+  /// Rearms pre-roll state when audio queue has drained and playback becomes idle.
+  void rearmPreRoll() {
+    if (_queue.isEmpty && !_isPreRolling) {
+      _isPreRolling = true;
+      _preRollStartTime = null;
+      _notifyStatus();
+    }
+  }
+
   /// Force flush pre-roll (e.g. when stream is finishing or user requested immediate playback).
   void flushPreRoll() {
     if (_isPreRolling) {
@@ -190,11 +199,6 @@ class AdaptiveTtsBuffer {
     final chunk = _queue.removeAt(0);
     if (chunk.sequenceNumber > _lastPlayedSequenceNumber) {
       _lastPlayedSequenceNumber = chunk.sequenceNumber;
-    }
-
-    if (_queue.isEmpty) {
-      _isPreRolling = true;
-      _preRollStartTime = null;
     }
 
     _evaluateSpeedAndPacing();

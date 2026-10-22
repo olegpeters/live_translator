@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../logging/app_logger.dart';
 
 class OnboardTtsService {
   final FlutterTts _flutterTts;
@@ -47,9 +48,7 @@ class OnboardTtsService {
       });
 
       _flutterTts.setErrorHandler((msg) {
-        if (kDebugMode) {
-          debugPrint('[OnboardTtsService] TTS error: $msg');
-        }
+        AppLogger.error('TTS error: $msg', tag: 'OnboardTtsService');
         _completeCurrentSpeak();
       });
 
@@ -61,10 +60,9 @@ class OnboardTtsService {
         await _flutterTts.setSharedInstance(true);
       }
       _isInitialized = true;
+      AppLogger.info('Onboard Android TTS initialized ($formattedLang)', tag: 'OnboardTtsService');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[OnboardTtsService] Initialization error: $e');
-      }
+      AppLogger.error('Initialization error: $e', tag: 'OnboardTtsService');
     }
   }
 
@@ -80,10 +78,9 @@ class OnboardTtsService {
     try {
       final formatted = _getFormattedLanguage(_language);
       await _flutterTts.setLanguage(formatted);
+      AppLogger.info('Language set to $languageCode ($formatted)', tag: 'OnboardTtsService');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[OnboardTtsService] Failed to set language $languageCode: $e');
-      }
+      AppLogger.error('Failed to set language $languageCode: $e', tag: 'OnboardTtsService');
     }
   }
 
@@ -120,9 +117,7 @@ class OnboardTtsService {
           Future.delayed(Duration(milliseconds: timeoutMs)),
         ]);
       } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[OnboardTtsService] Speak error for "$textToSpeak": $e');
-        }
+        AppLogger.error('Speak error for "$textToSpeak": $e', tag: 'OnboardTtsService');
       } finally {
         if (!completer.isCompleted) {
           completer.complete();
@@ -155,9 +150,7 @@ class OnboardTtsService {
     try {
       await _flutterTts.stop();
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[OnboardTtsService] Stop error: $e');
-      }
+      AppLogger.error('Stop error: $e', tag: 'OnboardTtsService');
     }
   }
 }

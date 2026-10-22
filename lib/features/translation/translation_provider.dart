@@ -4,6 +4,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/audio/adaptive_tts_buffer.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/audio/onboard_tts_service.dart';
+import '../../core/logging/app_logger.dart';
 import '../../core/network/soniox_realtime_translation_service.dart';
 import '../../core/storage/settings_repository.dart';
 
@@ -268,9 +269,7 @@ class TranslationProvider extends ChangeNotifier {
             return;
           }
         } catch (e) {
-          if (kDebugMode) {
-            debugPrint('[TranslationProvider] Reconnect failed: $e');
-          }
+          AppLogger.error('Reconnect failed: $e', tag: 'TranslationProvider');
         }
       }
     }
@@ -286,6 +285,7 @@ class TranslationProvider extends ChangeNotifier {
     final apiKey = await settingsRepository.getApiKey();
     if (apiKey == null || apiKey.trim().isEmpty) {
       _statusMessage = 'Fehler: Keinen API-Key in den Einstellungen hinterlegt!';
+      AppLogger.warning('Start translation failed: API key missing', tag: 'TranslationProvider');
       notifyListeners();
       return;
     }
@@ -296,6 +296,11 @@ class TranslationProvider extends ChangeNotifier {
     _enableSourceTranscription =
         await settingsRepository.getEnableSourceTranscription();
     audioService.outputGain = await settingsRepository.getOutputGain();
+
+    AppLogger.info(
+      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${audioService.outputGain}x)',
+      tag: 'TranslationProvider',
+    );
 
     if (_ttsEngine == 'onboard') {
       await onboardTtsService.setLanguage(targetLanguage);
