@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import '../logging/app_logger.dart';
+
 /// A chunk of translated audio with sequence tracking for reordering and jitter buffering.
 class SequencedAudioDelta {
   final Uint8List bytes;
@@ -9,6 +11,7 @@ class SequencedAudioDelta {
   final int sequenceNumber;
   final String streamId;
   final DateTime receivedAt;
+  final bool isLastInStream;
 
   SequencedAudioDelta({
     required this.bytes,
@@ -16,6 +19,7 @@ class SequencedAudioDelta {
     required this.sequenceNumber,
     required this.streamId,
     DateTime? receivedAt,
+    this.isLastInStream = false,
   }) : receivedAt = receivedAt ?? DateTime.now();
 
   /// Calculates duration of this 16-bit PCM mono chunk in seconds.
@@ -42,13 +46,15 @@ class AdaptiveBufferStatus {
 /// Adaptive TTS Jitter & Reordering Buffer.
 ///
 /// Features:
-/// 1. Pre-rolls initial target buffer (2.0s) for smooth jitter-free live audio streaming.
+/// 1. Pre-rolls initial target buffer (0.8s) for smooth low-latency live audio streaming.
 /// 2. Sorts incoming audio deltas by sequence number to fix out-of-order deliveries.
-/// 3. Adjusts target delay pessimistically (up to 10s) upon detecting out-of-order/late fragments.
-/// 4. Gradually accelerates playback speed (up to 1.3x) when buffer level allows, to catch up with live speech.
+/// 3. Adjusts target delay pessimistically (up to 10s) based on section latency and out-of-order fragments.
+/// 4. Slowly decays target delay (holding adapted delay for at least 30s) to maintain stability across utterances.
 class AdaptiveTtsBuffer {
-  static const double initialTargetDelay = 2.0; // 2.0s initial pre-roll buffer
+  static const double minTargetDelay = 0.8;      // 0.8s minimum base delay
+  static const double initialTargetDelay = 1.0;  // 1.0s initial pre-roll buffer
   static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
+  static const double underrunThresholdSeconds = 0.4; // 0.4s safety buffer threshold
   static const double minPlaybackSpeed = 1.0;
   static const double maxPlaybackSpeed = 1.3;
   static const double speedStep = 0.05;
@@ -57,9 +63,11 @@ class AdaptiveTtsBuffer {
   double _currentPlaybackSpeed = minPlaybackSpeed;
   int _outOfOrderEvents = 0;
   bool _isPreRolling = true;
+  bool _isStreamEnding = false;
   DateTime? _preRollStartTime;
   int _lastPlayedSequenceNumber = 0;
   DateTime? _lastOutOfOrderTime;
+  String? _activeStreamId;
 
   final List<SequencedAudioDelta> _queue = [];
   
@@ -70,6 +78,7 @@ class AdaptiveTtsBuffer {
   double get currentPlaybackSpeed => _currentPlaybackSpeed;
   int get outOfOrderEvents => _outOfOrderEvents;
   bool get isPreRolling => _isPreRolling;
+  bool get isStreamEnding => _isStreamEnding;
 
   /// Returns total duration in seconds of currently buffered PCM audio.
   double get currentBufferDurationSeconds {
@@ -98,16 +107,57 @@ class AdaptiveTtsBuffer {
     _currentPlaybackSpeed = minPlaybackSpeed;
     _outOfOrderEvents = 0;
     _isPreRolling = true;
+    _isStreamEnding = false;
     _preRollStartTime = null;
     _lastPlayedSequenceNumber = 0;
     _lastOutOfOrderTime = null;
+    _activeStreamId = null;
     _notifyStatus();
+  }
+
+  /// Pessimistically adapts target delay to the measured latency of the last audio section/utterance.
+  void reportSectionLatency(double latencySeconds) {
+    if (latencySeconds <= 0) return;
+    // Add safety margin (+1.0s) above measured section latency
+    final proposedTarget = math.min(
+      maxTargetDelay,
+      math.max(minTargetDelay, latencySeconds + 1.0),
+    );
+    if (proposedTarget > _targetDelaySeconds) {
+      _targetDelaySeconds = proposedTarget;
+      _lastOutOfOrderTime = DateTime.now();
+      _notifyStatus();
+    }
   }
 
   /// Adds a new audio delta chunk to the adaptive buffer.
   /// Reorders out-of-order chunks and adapts buffer delay or speed.
   void addChunk(SequencedAudioDelta delta) {
-    if (delta.bytes.isEmpty) return;
+    if (delta.bytes.isEmpty) {
+      if (delta.isLastInStream) {
+        _isStreamEnding = true;
+        if (_isPreRolling) {
+          _isPreRolling = false;
+          _preRollStartTime = null;
+          AppLogger.info('AdaptiveTtsBuffer stream end signaled via empty chunk; pre-roll completed', tag: 'AdaptiveTtsBuffer');
+          _notifyStatus();
+        }
+      }
+      return;
+    }
+
+    // Check for stream transition
+    if (_activeStreamId != delta.streamId) {
+      _activeStreamId = delta.streamId;
+      _isStreamEnding = delta.isLastInStream;
+      if (!_isStreamEnding && currentBufferDurationSeconds < _targetDelaySeconds) {
+        _isPreRolling = true;
+        _preRollStartTime = null;
+        AppLogger.info('AdaptiveTtsBuffer new stream ${delta.streamId}; re-arming pre-roll state', tag: 'AdaptiveTtsBuffer');
+      }
+    } else if (delta.isLastInStream) {
+      _isStreamEnding = true;
+    }
 
     // Detect late chunk that arrives after its sequence position was already played
     if (delta.sequenceNumber <= _lastPlayedSequenceNumber && _lastPlayedSequenceNumber > 0) {
@@ -138,13 +188,24 @@ class AdaptiveTtsBuffer {
       _queue.insert(insertIndex, delta);
     }
 
-    // Check if pre-roll requirement is met or fallback timeout elapsed (2500ms)
+    // Check if pre-roll requirement is met or fallback timeout elapsed
     if (_isPreRolling) {
-      _preRollStartTime ??= DateTime.now();
-      final waitedMs = DateTime.now().difference(_preRollStartTime!).inMilliseconds;
-      if (currentBufferDurationSeconds >= _targetDelaySeconds || waitedMs >= 2500) {
+      if (_isStreamEnding) {
         _isPreRolling = false;
         _preRollStartTime = null;
+        AppLogger.info('AdaptiveTtsBuffer stream ending; pre-roll completed immediately', tag: 'AdaptiveTtsBuffer');
+      } else {
+        _preRollStartTime ??= DateTime.now();
+        final waitedMs = DateTime.now().difference(_preRollStartTime!).inMilliseconds;
+        final maxWaitMs = (_targetDelaySeconds * 1000 + 1000).toInt();
+        if (currentBufferDurationSeconds >= _targetDelaySeconds || waitedMs >= maxWaitMs) {
+          _isPreRolling = false;
+          _preRollStartTime = null;
+          AppLogger.info(
+            'AdaptiveTtsBuffer pre-roll complete (buffered: ${currentBufferDurationSeconds.toStringAsFixed(2)}s, waited: ${waitedMs}ms)',
+            tag: 'AdaptiveTtsBuffer',
+          );
+        }
       }
     }
 
@@ -168,29 +229,38 @@ class AdaptiveTtsBuffer {
       math.max(_targetDelaySeconds + 0.1, _targetDelaySeconds + estimatedGapDuration),
     );
 
+    AppLogger.warning(
+      'AdaptiveTtsBuffer out-of-order chunk seq=${delta.sequenceNumber} stream=${delta.streamId} (gap=$seqGap); target delay adapted ${_targetDelaySeconds.toStringAsFixed(2)}s -> ${newTarget.toStringAsFixed(2)}s',
+      tag: 'AdaptiveTtsBuffer',
+    );
+
     _targetDelaySeconds = newTarget;
   }
 
   /// Rearms pre-roll state when audio queue has drained and playback becomes idle.
   void rearmPreRoll() {
+    _isStreamEnding = false;
     if (_queue.isEmpty && !_isPreRolling) {
       _isPreRolling = true;
       _preRollStartTime = null;
+      AppLogger.info('AdaptiveTtsBuffer queue drained; re-arming pre-roll state', tag: 'AdaptiveTtsBuffer');
       _notifyStatus();
     }
   }
 
   /// Force flush pre-roll (e.g. when stream is finishing or user requested immediate playback).
   void flushPreRoll() {
+    _isStreamEnding = true;
     if (_isPreRolling) {
       _isPreRolling = false;
       _preRollStartTime = null;
+      AppLogger.info('AdaptiveTtsBuffer pre-roll force flushed', tag: 'AdaptiveTtsBuffer');
       _notifyStatus();
     }
   }
 
   /// Determines whether audio is ready to be popped for playback.
-  bool get hasAudioToPlay => !_isPreRolling && _queue.isNotEmpty;
+  bool get hasAudioToPlay => (!_isPreRolling || _isStreamEnding) && _queue.isNotEmpty;
 
   /// Retrieves next audio chunk to play, updating tracking metadata.
   SequencedAudioDelta? popNextChunk() {
@@ -199,6 +269,17 @@ class AdaptiveTtsBuffer {
     final chunk = _queue.removeAt(0);
     if (chunk.sequenceNumber > _lastPlayedSequenceNumber) {
       _lastPlayedSequenceNumber = chunk.sequenceNumber;
+    }
+
+    // Check for underrun during active streaming: if buffer dropped below safety threshold (< 0.4s)
+    // and stream is NOT ending, re-enter pre-roll state to rebuild jitter buffer and prevent stuttering.
+    if (!_isStreamEnding && currentBufferDurationSeconds < underrunThresholdSeconds) {
+      _isPreRolling = true;
+      _preRollStartTime = null;
+      AppLogger.info(
+        'AdaptiveTtsBuffer underrun threshold reached (remaining: ${currentBufferDurationSeconds.toStringAsFixed(2)}s); re-entering pre-roll',
+        tag: 'AdaptiveTtsBuffer',
+      );
     }
 
     _evaluateSpeedAndPacing();
@@ -210,43 +291,42 @@ class AdaptiveTtsBuffer {
   /// Evaluates and adjusts playback speed based on buffer depth and sequence stability.
   void _evaluateSpeedAndPacing() {
     if (_isPreRolling || _queue.isEmpty) {
+      _currentPlaybackSpeed = minPlaybackSpeed;
       return;
     }
 
-    // Slowly decay _targetDelaySeconds back toward initialTargetDelay if network is stable
+    // Slowly decay _targetDelaySeconds back toward minTargetDelay ONLY if network has been stable for > 30s
     if (_lastOutOfOrderTime != null) {
       final elapsedSinceAnomaly = DateTime.now().difference(_lastOutOfOrderTime!);
-      if (elapsedSinceAnomaly >= const Duration(seconds: 3)) {
-        if (_targetDelaySeconds > initialTargetDelay) {
+      if (elapsedSinceAnomaly >= const Duration(seconds: 30)) {
+        if (_targetDelaySeconds > minTargetDelay) {
           _targetDelaySeconds = math.max(
-            initialTargetDelay,
-            _targetDelaySeconds - 0.05,
+            minTargetDelay,
+            _targetDelaySeconds - 0.005,
           );
         }
       } else {
         _currentPlaybackSpeed = minPlaybackSpeed;
         return;
       }
-    } else if (_targetDelaySeconds > initialTargetDelay) {
+    } else if (_targetDelaySeconds > minTargetDelay) {
       _targetDelaySeconds = math.max(
-        initialTargetDelay,
-        _targetDelaySeconds - 0.05,
+        minTargetDelay,
+        _targetDelaySeconds - 0.005,
       );
     }
 
     double bufferedDuration = currentBufferDurationSeconds;
 
-    // Catch up if buffered audio exceeds target delay
-    if (bufferedDuration > _targetDelaySeconds + 0.3) {
+    // Only accelerate catch-up playback if buffered audio significantly exceeds target delay (+1.0s).
+    // Near or below target delay time, speed is strictly locked to 1.0x (normal speed).
+    if (bufferedDuration >= _targetDelaySeconds + 1.0) {
       _currentPlaybackSpeed = math.min(
         maxPlaybackSpeed,
         _currentPlaybackSpeed + speedStep,
       );
-    } else if (bufferedDuration <= _targetDelaySeconds) {
-      _currentPlaybackSpeed = math.max(
-        minPlaybackSpeed,
-        _currentPlaybackSpeed - speedStep,
-      );
+    } else {
+      _currentPlaybackSpeed = minPlaybackSpeed;
     }
   }
 

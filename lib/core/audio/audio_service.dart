@@ -155,8 +155,8 @@ class AudioService {
   bool? _isRecording;
   bool _flushRequested = false;
 
-  /// Target minimum bytes buffered before starting a batch playback (~300ms at 24kHz PCM16 mono for Android stability)
-  static const int minBatchBytes = 14400;
+  /// Target minimum bytes buffered before starting a batch playback (~500ms at 24kHz PCM16 mono for Android/Web stability)
+  static const int minBatchBytes = 24000;
 
   /// Maximum bytes to batch in a single play() call (~1.0s at 24kHz PCM16 mono)
   static const int maxBatchBytes = 48000;
@@ -324,7 +324,9 @@ class AudioService {
 
   void _replenishQueueFromBuffer(AdaptiveTtsBuffer buffer) {
     int currentBytes = _queue.fold(0, (sum, c) => sum + c.bytes.length);
-    while (currentBytes < maxBatchBytes && buffer.hasAudioToPlay) {
+    // Replenish only enough bytes (~300ms) for the immediate hardware batch,
+    // retaining the rest of the jitter buffer in AdaptiveTtsBuffer.
+    while (currentBytes < minBatchBytes && buffer.hasAudioToPlay) {
       final chunk = buffer.popNextChunk();
       if (chunk == null) break;
       setPlaybackRate(buffer.currentPlaybackSpeed);
@@ -376,16 +378,16 @@ class AudioService {
 
         int waitedMs = 0;
         const waitStepMs = 20;
-        const maxWaitMs = 150;
+        const maxWaitMs = 200;
 
         while (_playing &&
             !_flushRequested &&
             totalQueueBytes < minBatchBytes &&
-            (buffer == null || buffer.hasAudioToPlay || buffer.currentBufferDurationSeconds > 0) &&
+            buffer != null &&
+            !buffer.isStreamEnding &&
             waitedMs < maxWaitMs) {
-          if (buffer != null) {
-            _replenishQueueFromBuffer(buffer);
-          }
+          _replenishQueueFromBuffer(buffer);
+          if (totalQueueBytes >= minBatchBytes) break;
           await Future.delayed(const Duration(milliseconds: waitStepMs));
           waitedMs += waitStepMs;
           totalQueueBytes = _queue
@@ -433,6 +435,10 @@ class AudioService {
       _currentPlaybackCompleter = completer;
 
       final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2 * currentPlaybackRate)).ceil();
+      AppLogger.debug(
+        'AudioService starting playback batch ($batchedBytes bytes, ${chunks.length} chunks, ~$durationMs ms, speed ${currentPlaybackRate.toStringAsFixed(2)}x)',
+        tag: 'AudioService',
+      );
       final stopwatch = Stopwatch()..start();
 
       StreamSubscription? completeSub;
@@ -448,6 +454,10 @@ class AudioService {
         await completer.future.timeout(
           Duration(milliseconds: durationMs + 300),
           onTimeout: () {
+            AppLogger.warning(
+              'Playback timeout reached after ${durationMs + 300} ms; completing batch completer',
+              tag: 'AudioService',
+            );
             if (!completer.isCompleted) {
               completer.complete();
             }

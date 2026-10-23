@@ -122,12 +122,16 @@ class TranslationProvider extends ChangeNotifier {
     _audioPlaybackSubscription =
         translationService.onAudioDelta.listen((delta) {
       if (_ttsEngine == 'soniox') {
+        if (delta.measuredLatencySeconds != null && delta.measuredLatencySeconds! > 0) {
+          adaptiveTtsBuffer.reportSectionLatency(delta.measuredLatencySeconds!);
+        }
         adaptiveTtsBuffer.addChunk(
           SequencedAudioDelta(
             bytes: delta.bytes,
             sampleRate: delta.sampleRate,
             sequenceNumber: delta.sequenceNumber,
             streamId: delta.streamId,
+            isLastInStream: delta.isLastInStream,
           ),
         );
         _pumpAudioFromBuffer();
@@ -137,6 +141,7 @@ class TranslationProvider extends ChangeNotifier {
     _transcriptSubscription =
         translationService.onTranscriptDelta.listen((textDelta) {
       _targetTranscript += textDelta;
+      AppLogger.debug('Target transcript updated (+${textDelta.length} chars): "$textDelta"', tag: 'TranslationProvider');
       if (_ttsEngine == 'onboard') {
         _sentenceBuffer += textDelta;
         _restartSentenceInactivityTimer();
@@ -148,6 +153,7 @@ class TranslationProvider extends ChangeNotifier {
     _sourceTranscriptSubscription =
         translationService.onSourceTranscriptDelta.listen((textDelta) {
       _sourceTranscript += textDelta;
+      AppLogger.debug('Source transcript updated (+${textDelta.length} chars): "$textDelta"', tag: 'TranslationProvider');
       notifyListeners();
     });
 

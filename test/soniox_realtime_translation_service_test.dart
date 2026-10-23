@@ -151,11 +151,10 @@ void main() {
       }
 
       final binaryFrames = sttChannel.rawSent.whereType<Uint8List>().toList();
-      expect(binaryFrames, hasLength(1));
-      expect(binaryFrames.first.length, 9600);
+      // Total bytes sent: 3 * 3200 = 9600 bytes. At frameBytes = 2400 (50ms), yields 4 frames.
+      expect(binaryFrames, hasLength(4));
+      expect(binaryFrames.first.length, 2400);
       expect(binaryFrames.first[0], 1);
-      expect(binaryFrames.first[3200], 2);
-      expect(binaryFrames.first[6400], 3);
     });
 
     test('STT original tokens emit source transcript', () async {

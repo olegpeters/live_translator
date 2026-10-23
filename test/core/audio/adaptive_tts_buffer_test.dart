@@ -20,13 +20,13 @@ void main() {
       return Uint8List(byteCount);
     }
 
-    test('Initial pre-roll requires 0.4 seconds before pre-roll finishes', () {
+    test('Initial pre-roll requires 1.0 second before pre-roll finishes', () {
       expect(buffer.isPreRolling, isTrue);
-      expect(buffer.targetDelaySeconds, equals(0.4));
+      expect(buffer.targetDelaySeconds, equals(1.0));
 
-      // Add 0.2 seconds of audio
+      // Add 0.5 second of audio
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.2),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 1,
         streamId: 's1',
       ));
@@ -34,9 +34,9 @@ void main() {
       expect(buffer.isPreRolling, isTrue);
       expect(buffer.hasAudioToPlay, isFalse);
 
-      // Add another 0.2 seconds (total 0.4s)
+      // Add another 0.5 second (total 1.0s)
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.2),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 2,
         streamId: 's1',
       ));
@@ -45,34 +45,70 @@ void main() {
       expect(buffer.hasAudioToPlay, isTrue);
     });
 
-    test('Out-of-order chunks are reordered and increase safety target delay', () {
-      // Complete pre-roll
+    test('Underrun re-arms pre-roll when remaining buffer drops below 0.4s during active stream', () {
+      // Complete pre-roll with 1.0s
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.5),
+        bytes: generatePcmSeconds(1.0),
+        sequenceNumber: 1,
+        streamId: 's1',
+      ));
+
+      expect(buffer.isPreRolling, isFalse);
+
+      // Pop 0.7s chunk (leaves 0.3s remaining < 0.4s threshold)
+      final popped = buffer.popNextChunk();
+      expect(popped, isNotNull);
+
+      // Since active stream is NOT ending and remaining buffer dropped below 0.4s, pre-roll re-arms
+      expect(buffer.isPreRolling, isTrue);
+      expect(buffer.hasAudioToPlay, isFalse);
+    });
+
+    test('isLastInStream flag flushes pre-roll for trailing audio playback', () {
+      // Add small 0.3s chunk marked as stream end
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(0.3),
+        sequenceNumber: 1,
+        streamId: 's1',
+        isLastInStream: true,
+      ));
+
+      expect(buffer.isStreamEnding, isTrue);
+      expect(buffer.isPreRolling, isFalse);
+      expect(buffer.hasAudioToPlay, isTrue);
+
+      final popped = buffer.popNextChunk();
+      expect(popped, isNotNull);
+      expect(popped?.durationSeconds, closeTo(0.3, 0.01));
+    });
+
+    test('Out-of-order chunks are reordered and increase safety target delay', () {
+      // Complete pre-roll with 1.0s
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(1.0),
         sequenceNumber: 1000001,
         streamId: 'stream-1',
       ));
 
       expect(buffer.isPreRolling, isFalse);
 
-      // Now chunk 3 arrives before chunk 2 (queue contains chunk 1)
+      // Now chunk 3 arrives before chunk 2
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.2),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 1000003,
         streamId: 'stream-1',
       ));
 
       expect(buffer.outOfOrderEvents, equals(1));
-      expect(buffer.targetDelaySeconds, greaterThan(0.4));
+      expect(buffer.targetDelaySeconds, greaterThan(1.0));
 
       // Late chunk 2 arrives
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.2),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 1000002,
         streamId: 'stream-1',
       ));
 
-      // Pop next chunk should be chunk 1, then chunk 2, then chunk 3 (correct sequence order restored)
       final popped1 = buffer.popNextChunk();
       final popped2 = buffer.popNextChunk();
       final popped3 = buffer.popNextChunk();
@@ -83,9 +119,8 @@ void main() {
     });
 
     test('Playback speed accelerates up to 1.3x when buffer accumulates extra audio', () {
-      // Add 2.0 seconds of audio (exceeding initial 0.4s target)
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(2.0),
+        bytes: generatePcmSeconds(2.5),
         sequenceNumber: 1,
         streamId: 's1',
       ));
@@ -93,7 +128,6 @@ void main() {
       expect(buffer.isPreRolling, isFalse);
       expect(buffer.currentPlaybackSpeed, greaterThan(1.0));
 
-      // Add more chunks to push speed towards 1.3x
       for (int i = 2; i <= 10; i++) {
         buffer.addChunk(SequencedAudioDelta(
           bytes: generatePcmSeconds(0.5),
@@ -106,7 +140,6 @@ void main() {
     });
 
     test('flushPreRoll forces pre-roll completion immediately', () {
-      // Add a small chunk (0.1s < target 0.4s) so pre-roll is still active
       buffer.addChunk(SequencedAudioDelta(
         bytes: generatePcmSeconds(0.1),
         sequenceNumber: 1,
