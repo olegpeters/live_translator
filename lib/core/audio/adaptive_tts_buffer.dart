@@ -51,10 +51,10 @@ class AdaptiveBufferStatus {
 /// 3. Adjusts target delay pessimistically (up to 10s) based on section latency and out-of-order fragments.
 /// 4. Slowly decays target delay (holding adapted delay for at least 30s) to maintain stability across utterances.
 class AdaptiveTtsBuffer {
-  static const double minTargetDelay = 0.8;      // 0.8s minimum base delay
-  static const double initialTargetDelay = 1.0;  // 1.0s initial pre-roll buffer
-  static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
-  static const double underrunThresholdSeconds = 0.4; // 0.4s safety buffer threshold
+  static const double minTargetDelay = 0.3;      // 0.3s minimum base delay
+  static const double initialTargetDelay = 0.4;  // 0.4s initial pre-roll buffer
+  static const double maxTargetDelay = 2.5;     // 2.5s upper limit for real-time translation
+  static const double rearmTargetDelay = 0.25;   // 0.25s light buffer for mid-stream recovery
   static const double minPlaybackSpeed = 1.0;
   static const double maxPlaybackSpeed = 1.3;
   static const double speedStep = 0.05;
@@ -118,10 +118,10 @@ class AdaptiveTtsBuffer {
   /// Pessimistically adapts target delay to the measured latency of the last audio section/utterance.
   void reportSectionLatency(double latencySeconds) {
     if (latencySeconds <= 0) return;
-    // Add safety margin (+1.0s) above measured section latency
+    // Add small safety margin (+0.2s) above measured section latency
     final proposedTarget = math.min(
       maxTargetDelay,
-      math.max(minTargetDelay, latencySeconds + 1.0),
+      math.max(minTargetDelay, latencySeconds + 0.2),
     );
     if (proposedTarget > _targetDelaySeconds) {
       _targetDelaySeconds = proposedTarget;
@@ -197,8 +197,9 @@ class AdaptiveTtsBuffer {
       } else {
         _preRollStartTime ??= DateTime.now();
         final waitedMs = DateTime.now().difference(_preRollStartTime!).inMilliseconds;
-        final maxWaitMs = (_targetDelaySeconds * 1000 + 1000).toInt();
-        if (currentBufferDurationSeconds >= _targetDelaySeconds || waitedMs >= maxWaitMs) {
+        final requiredDelay = math.min(_targetDelaySeconds, rearmTargetDelay);
+        final maxWaitMs = (requiredDelay * 1000 + 400).toInt();
+        if (currentBufferDurationSeconds >= requiredDelay || waitedMs >= maxWaitMs) {
           _isPreRolling = false;
           _preRollStartTime = null;
           AppLogger.info(
@@ -271,17 +272,6 @@ class AdaptiveTtsBuffer {
       _lastPlayedSequenceNumber = chunk.sequenceNumber;
     }
 
-    // Check for underrun during active streaming: if buffer dropped below safety threshold (< 0.4s)
-    // and stream is NOT ending, re-enter pre-roll state to rebuild jitter buffer and prevent stuttering.
-    if (!_isStreamEnding && currentBufferDurationSeconds < underrunThresholdSeconds) {
-      _isPreRolling = true;
-      _preRollStartTime = null;
-      AppLogger.info(
-        'AdaptiveTtsBuffer underrun threshold reached (remaining: ${currentBufferDurationSeconds.toStringAsFixed(2)}s); re-entering pre-roll',
-        tag: 'AdaptiveTtsBuffer',
-      );
-    }
-
     _evaluateSpeedAndPacing();
     _notifyStatus();
 
@@ -298,7 +288,7 @@ class AdaptiveTtsBuffer {
     // Slowly decay _targetDelaySeconds back toward minTargetDelay ONLY if network has been stable for > 30s
     if (_lastOutOfOrderTime != null) {
       final elapsedSinceAnomaly = DateTime.now().difference(_lastOutOfOrderTime!);
-      if (elapsedSinceAnomaly >= const Duration(seconds: 30)) {
+      if (elapsedSinceAnomaly >= const Duration(seconds: 5)) {
         if (_targetDelaySeconds > minTargetDelay) {
           _targetDelaySeconds = math.max(
             minTargetDelay,

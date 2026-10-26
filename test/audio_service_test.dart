@@ -39,5 +39,46 @@ void main() {
       final amplified = amplifyPcm16(original, 1.0);
       expect(amplified, equals(original));
     });
+
+    test('applyPcm16EdgeSmoothing returns unmodified bytes when fadeIn and fadeOut are false', () {
+      final original = Uint8List.fromList(List.generate(200, (i) => i));
+      final smoothed = applyPcm16EdgeSmoothing(original, fadeIn: false, fadeOut: false);
+      expect(smoothed, equals(original));
+    });
+
+    test('applyPcm16EdgeSmoothing applies fade-in when fadeIn is true', () {
+      final ByteData data = ByteData(200);
+      for (int i = 0; i < 100; i++) {
+        data.setInt16(i * 2, 10000, Endian.little);
+      }
+      final original = data.buffer.asUint8List();
+
+      final smoothed = applyPcm16EdgeSmoothing(original, fadeIn: true, fadeOut: false, fadeSamples: 10);
+      final ByteData resultData = ByteData.sublistView(smoothed);
+
+      // First sample should be 0 (factor 0.0)
+      expect(resultData.getInt16(0, Endian.little), equals(0));
+      // Mid sample should be > 0 and < 10000
+      expect(resultData.getInt16(10, Endian.little), greaterThan(0));
+      expect(resultData.getInt16(10, Endian.little), lessThan(10000));
+      // Samples past fadeSamples should remain original 10000
+      expect(resultData.getInt16(30, Endian.little), equals(10000));
+    });
+
+    test('applyPcm16EdgeSmoothing applies fade-out when fadeOut is true', () {
+      final ByteData data = ByteData(200);
+      for (int i = 0; i < 100; i++) {
+        data.setInt16(i * 2, 10000, Endian.little);
+      }
+      final original = data.buffer.asUint8List();
+
+      final smoothed = applyPcm16EdgeSmoothing(original, fadeIn: false, fadeOut: true, fadeSamples: 10);
+      final ByteData resultData = ByteData.sublistView(smoothed);
+
+      // Start samples remain 10000
+      expect(resultData.getInt16(0, Endian.little), equals(10000));
+      // Last sample should be 0 (factor 0.0)
+      expect(resultData.getInt16(198, Endian.little), equals(0));
+    });
   });
 }

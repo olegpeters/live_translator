@@ -20,13 +20,13 @@ void main() {
       return Uint8List(byteCount);
     }
 
-    test('Initial pre-roll requires 1.0 second before pre-roll finishes', () {
+    test('Initial pre-roll requires target delay before pre-roll finishes', () {
       expect(buffer.isPreRolling, isTrue);
-      expect(buffer.targetDelaySeconds, equals(1.0));
+      expect(buffer.targetDelaySeconds, equals(0.4));
 
-      // Add 0.5 second of audio
+      // Add 0.2 second of audio
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.5),
+        bytes: generatePcmSeconds(0.2),
         sequenceNumber: 1,
         streamId: 's1',
       ));
@@ -34,9 +34,9 @@ void main() {
       expect(buffer.isPreRolling, isTrue);
       expect(buffer.hasAudioToPlay, isFalse);
 
-      // Add another 0.5 second (total 1.0s)
+      // Add another 0.2 second (total 0.4s)
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.5),
+        bytes: generatePcmSeconds(0.2),
         sequenceNumber: 2,
         streamId: 's1',
       ));
@@ -45,23 +45,21 @@ void main() {
       expect(buffer.hasAudioToPlay, isTrue);
     });
 
-    test('Underrun re-arms pre-roll when remaining buffer drops below 0.4s during active stream', () {
-      // Complete pre-roll with 1.0s
+    test('Mid-stream popping allows continuous playback without re-arming pre-roll barrier', () {
+      // Complete pre-roll with 0.5s
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(1.0),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 1,
         streamId: 's1',
       ));
 
       expect(buffer.isPreRolling, isFalse);
 
-      // Pop 0.7s chunk (leaves 0.3s remaining < 0.4s threshold)
       final popped = buffer.popNextChunk();
       expect(popped, isNotNull);
 
-      // Since active stream is NOT ending and remaining buffer dropped below 0.4s, pre-roll re-arms
-      expect(buffer.isPreRolling, isTrue);
-      expect(buffer.hasAudioToPlay, isFalse);
+      // Mid-stream pre-roll remains unblocked so newly arriving chunks play immediately
+      expect(buffer.isPreRolling, isFalse);
     });
 
     test('isLastInStream flag flushes pre-roll for trailing audio playback', () {
@@ -83,9 +81,9 @@ void main() {
     });
 
     test('Out-of-order chunks are reordered and increase safety target delay', () {
-      // Complete pre-roll with 1.0s
+      // Complete pre-roll with 0.5s
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(1.0),
+        bytes: generatePcmSeconds(0.5),
         sequenceNumber: 1000001,
         streamId: 'stream-1',
       ));
@@ -100,7 +98,7 @@ void main() {
       ));
 
       expect(buffer.outOfOrderEvents, equals(1));
-      expect(buffer.targetDelaySeconds, greaterThan(1.0));
+      expect(buffer.targetDelaySeconds, greaterThan(0.4));
 
       // Late chunk 2 arrives
       buffer.addChunk(SequencedAudioDelta(

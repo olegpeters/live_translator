@@ -84,30 +84,42 @@ Uint8List amplifyPcm16(Uint8List pcmBytes, double gain) {
   return amplifiedBytes;
 }
 
-/// Applies a smooth 2ms linear fade-in and fade-out to 16-bit PCM mono bytes.
-/// This eliminates DC-offset step pops and cracking artifacts at chunk boundaries.
-Uint8List applyPcm16EdgeSmoothing(Uint8List pcmBytes, {int fadeSamples = 48}) {
+/// Applies a smooth linear fade-in and/or fade-out to 16-bit PCM mono bytes.
+/// Micro fade-in/out (default 32 samples = ~1.3ms at 24kHz) is applied only at the
+/// start/end of a stream to prevent DC-offset step pops, while keeping inner
+/// batch boundaries bit-exact continuous to prevent stuttering/volume dips.
+Uint8List applyPcm16EdgeSmoothing(
+  Uint8List pcmBytes, {
+  bool fadeIn = false,
+  bool fadeOut = false,
+  int fadeSamples = 32,
+}) {
+  if ((!fadeIn && !fadeOut) || pcmBytes.length < 4) return pcmBytes;
+
   final int totalSamples = pcmBytes.length ~/ 2;
-  if (totalSamples <= fadeSamples * 2 || fadeSamples <= 0) return pcmBytes;
+  final int actualFadeSamples = min(fadeSamples, totalSamples ~/ 2);
+  if (actualFadeSamples <= 0) return pcmBytes;
 
   final Uint8List smoothedBytes = Uint8List.fromList(pcmBytes);
   final ByteData byteData = ByteData.sublistView(smoothedBytes);
 
-  // Fade-in: first fadeSamples
-  for (int i = 0; i < fadeSamples; i++) {
-    final double factor = i / fadeSamples;
-    final int sample = byteData.getInt16(i * 2, Endian.little);
-    final int smoothed = (sample * factor).round().clamp(-32768, 32767);
-    byteData.setInt16(i * 2, smoothed, Endian.little);
+  if (fadeIn) {
+    for (int i = 0; i < actualFadeSamples; i++) {
+      final double factor = i / actualFadeSamples;
+      final int sample = byteData.getInt16(i * 2, Endian.little);
+      final int smoothed = (sample * factor).round().clamp(-32768, 32767);
+      byteData.setInt16(i * 2, smoothed, Endian.little);
+    }
   }
 
-  // Fade-out: last fadeSamples
-  for (int i = 0; i < fadeSamples; i++) {
-    final int sampleIndex = totalSamples - fadeSamples + i;
-    final double factor = (fadeSamples - i) / fadeSamples;
-    final int sample = byteData.getInt16(sampleIndex * 2, Endian.little);
-    final int smoothed = (sample * factor).round().clamp(-32768, 32767);
-    byteData.setInt16(sampleIndex * 2, smoothed, Endian.little);
+  if (fadeOut) {
+    for (int i = 0; i < actualFadeSamples; i++) {
+      final int sampleIndex = totalSamples - actualFadeSamples + i;
+      final double factor = (actualFadeSamples - 1 - i) / actualFadeSamples;
+      final int sample = byteData.getInt16(sampleIndex * 2, Endian.little);
+      final int smoothed = (sample * factor).round().clamp(-32768, 32767);
+      byteData.setInt16(sampleIndex * 2, smoothed, Endian.little);
+    }
   }
 
   return smoothedBytes;
@@ -116,8 +128,9 @@ Uint8List applyPcm16EdgeSmoothing(Uint8List pcmBytes, {int fadeSamples = 48}) {
 class _PcmChunk {
   final Uint8List bytes;
   final int sampleRate;
+  final String? streamId;
 
-  const _PcmChunk(this.bytes, this.sampleRate);
+  const _PcmChunk(this.bytes, this.sampleRate, [this.streamId]);
 }
 
 class AudioService {
@@ -155,11 +168,11 @@ class AudioService {
   bool? _isRecording;
   bool _flushRequested = false;
 
-  /// Target minimum bytes buffered before starting a batch playback (~500ms at 24kHz PCM16 mono for Android/Web stability)
-  static const int minBatchBytes = 24000;
+  /// Target minimum bytes buffered before starting a batch playback (~200ms at 24kHz PCM16 mono)
+  static const int minBatchBytes = 9600;
 
-  /// Maximum bytes to batch in a single play() call (~1.0s at 24kHz PCM16 mono)
-  static const int maxBatchBytes = 48000;
+  /// Maximum bytes to batch in a single play() call (~3.0s at 24kHz PCM16 mono)
+  static const int maxBatchBytes = 144000;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
@@ -324,16 +337,15 @@ class AudioService {
 
   void _replenishQueueFromBuffer(AdaptiveTtsBuffer buffer) {
     int currentBytes = _queue.fold(0, (sum, c) => sum + c.bytes.length);
-    // Replenish only enough bytes (~300ms) for the immediate hardware batch,
-    // retaining the rest of the jitter buffer in AdaptiveTtsBuffer.
-    while (currentBytes < minBatchBytes && buffer.hasAudioToPlay) {
+    // Replenish all available chunks in the jitter buffer up to maxBatchBytes
+    while (currentBytes < maxBatchBytes && buffer.hasAudioToPlay) {
       final chunk = buffer.popNextChunk();
       if (chunk == null) break;
       setPlaybackRate(buffer.currentPlaybackSpeed);
       final processedBytes = outputGain != 1.0
           ? amplifyPcm16(chunk.bytes, outputGain)
           : chunk.bytes;
-      _queue.add(_PcmChunk(processedBytes, chunk.sampleRate));
+      _queue.add(_PcmChunk(processedBytes, chunk.sampleRate, chunk.streamId));
       currentBytes += processedBytes.length;
     }
   }
@@ -359,6 +371,8 @@ class AudioService {
   }
 
   Future<void> _runPlaybackLoop([AdaptiveTtsBuffer? buffer]) async {
+    bool isStreamStart = true;
+
     while (_playing) {
       if (buffer != null) {
         _replenishQueueFromBuffer(buffer);
@@ -369,48 +383,16 @@ class AudioService {
       }
 
       final int sampleRate = _queue.first.sampleRate;
-
-      // Jitter buffer: wait briefly for more chunks if current queue is below minBatchBytes
-      if (!_flushRequested) {
-        int totalQueueBytes = _queue
-            .where((c) => c.sampleRate == sampleRate)
-            .fold(0, (sum, c) => sum + c.bytes.length);
-
-        int waitedMs = 0;
-        const waitStepMs = 20;
-        const maxWaitMs = 200;
-
-        while (_playing &&
-            !_flushRequested &&
-            totalQueueBytes < minBatchBytes &&
-            buffer != null &&
-            !buffer.isStreamEnding &&
-            waitedMs < maxWaitMs) {
-          _replenishQueueFromBuffer(buffer);
-          if (totalQueueBytes >= minBatchBytes) break;
-          await Future.delayed(const Duration(milliseconds: waitStepMs));
-          waitedMs += waitStepMs;
-          totalQueueBytes = _queue
-              .where((c) => c.sampleRate == sampleRate)
-              .fold(0, (sum, c) => sum + c.bytes.length);
-        }
-      }
+      final String? currentStreamId = _queue.first.streamId;
 
       _flushRequested = false;
 
-      if (buffer != null) {
-        _replenishQueueFromBuffer(buffer);
-      }
-
-      if (!_playing || _queue.isEmpty) {
-        break;
-      }
-
-      // Batch consecutive chunks that share the same sample rate up to maxBatchBytes.
+      // Batch consecutive chunks that share the same sample rate and stream ID up to maxBatchBytes.
       final chunks = <Uint8List>[];
       int batchedBytes = 0;
       while (_queue.isNotEmpty &&
           _queue.first.sampleRate == sampleRate &&
+          (currentStreamId == null || _queue.first.streamId == currentStreamId) &&
           batchedBytes < maxBatchBytes) {
         final chunk = _queue.removeAt(0);
         chunks.add(chunk.bytes);
@@ -427,8 +409,24 @@ class AudioService {
         offset += chunk.length;
       }
 
-      // Apply 2ms edge smoothing to eliminate DC-offset step clicks/pops at batch boundaries
-      final Uint8List pcmBytes = applyPcm16EdgeSmoothing(rawPcm, fadeSamples: 48);
+      if (buffer != null) {
+        _replenishQueueFromBuffer(buffer);
+      }
+
+  static const double maxPlaybackSpeed = 1.3;
+  static const double speedStep = 0.05;
+      final bool hasMoreAudio = _queue.isNotEmpty || (buffer != null && buffer.hasAudioToPlay);
+      final bool shouldFadeIn = isStreamStart;
+      final bool shouldFadeOut = !hasMoreAudio;
+      isStreamStart = false;
+
+      // Smooth micro fade-in/out only at outer stream boundaries (start/end of speech)
+      final Uint8List pcmBytes = applyPcm16EdgeSmoothing(
+        rawPcm,
+        fadeIn: shouldFadeIn,
+        fadeOut: shouldFadeOut,
+        fadeSamples: 32,
+      );
 
       final wavBytes = pcmToWav(pcmBytes, sampleRate: sampleRate);
       final completer = Completer<void>();
@@ -439,7 +437,6 @@ class AudioService {
         'AudioService starting playback batch ($batchedBytes bytes, ${chunks.length} chunks, ~$durationMs ms, speed ${currentPlaybackRate.toStringAsFixed(2)}x)',
         tag: 'AudioService',
       );
-      final stopwatch = Stopwatch()..start();
 
       StreamSubscription? completeSub;
       try {
@@ -472,14 +469,8 @@ class AudioService {
         await completeSub?.cancel();
         _currentPlaybackCompleter = null;
       }
-
-      // Ensure we never cut off playback before physical audio duration has elapsed.
-      final elapsedMs = stopwatch.elapsedMilliseconds;
-      if (elapsedMs < durationMs) {
-        final remainingMs = durationMs - elapsedMs;
-        await Future.delayed(Duration(milliseconds: remainingMs));
-      }
     }
+
     _playing = false;
     _flushRequested = false;
 
