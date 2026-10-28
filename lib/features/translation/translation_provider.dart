@@ -45,10 +45,17 @@ class TranslationProvider extends ChangeNotifier {
   bool get enableSourceTranscription => _enableSourceTranscription;
   TranslationConnectionState get connectionState => _connectionState;
 
-  double get audioInFlightSeconds => adaptiveTtsBuffer.currentBufferDurationSeconds;
+  double get phoneBufferSeconds =>
+      adaptiveTtsBuffer.currentBufferDurationSeconds +
+      audioService.queuedAudioDurationSeconds;
+  double get audioInFlightSeconds => phoneBufferSeconds;
   double get targetDelaySeconds => adaptiveTtsBuffer.targetDelaySeconds;
   double get currentPlaybackSpeed => adaptiveTtsBuffer.currentPlaybackSpeed;
   int get ttsOutOfOrderEvents => adaptiveTtsBuffer.outOfOrderEvents;
+  bool get hasRecentOutOfOrderEvent => adaptiveTtsBuffer.hasRecentOutOfOrderEvent;
+  double get ttsLatencySeconds => adaptiveTtsBuffer.ttsLatencySeconds;
+  double get lastLateFragmentDelaySeconds => adaptiveTtsBuffer.lastLateFragmentDelaySeconds;
+  double get translationLatencySeconds => translationService.translationLatencySeconds;
   bool get isPreRolling => adaptiveTtsBuffer.isPreRolling;
 
   TranslationProvider({

@@ -83,6 +83,8 @@ class SonioxRealtimeTranslationService {
   bool _currentTtsStreamActive = false;
   Timer? _ttsInactivityTimer;
   Timer? _keepAliveTimer;
+  DateTime? _lastInputAudioSentTime;
+  double _translationLatencySeconds = 0.0;
 
   final List<String> _streamOrder = [];
   final Map<String, List<Uint8List>> _streamAudioBuffers = {};
@@ -107,6 +109,7 @@ class SonioxRealtimeTranslationService {
   TranslationConnectionState get currentState => _currentState;
   bool get isReady => _isReady;
   bool get enableSourceTranscription => _enableSourceTranscription;
+  double get translationLatencySeconds => _translationLatencySeconds;
 
   SonioxRealtimeTranslationService({
     this.channelFactory,
@@ -167,6 +170,8 @@ class SonioxRealtimeTranslationService {
     _streamAudioBuffers.clear();
     _completedStreams.clear();
     _pending.clear();
+    _lastInputAudioSentTime = null;
+    _translationLatencySeconds = 0.0;
     _isReady = false;
     _levelLoggedFrames = 0;
     _connectWatch = Stopwatch()..start();
@@ -520,6 +525,10 @@ class SonioxRealtimeTranslationService {
               _sourceTranscriptController.add(text);
             }
           } else if (translationStatus == 'translation' && text.isNotEmpty) {
+            if (_lastInputAudioSentTime != null) {
+              _translationLatencySeconds =
+                  DateTime.now().difference(_lastInputAudioSentTime!).inMilliseconds / 1000.0;
+            }
             if (!_transcriptDeltaController.isClosed) {
               _transcriptDeltaController.add(text);
             }
@@ -775,6 +784,7 @@ class SonioxRealtimeTranslationService {
     _sttChannel?.sink.add(frame);
     _sentFrames++;
     _sentBytes += frame.length;
+    _lastInputAudioSentTime = DateTime.now();
     _logFirstFrameLevel(frame);
   }
 
@@ -863,6 +873,8 @@ class SonioxRealtimeTranslationService {
     _streamOrder.clear();
     _streamAudioBuffers.clear();
     _completedStreams.clear();
+    _lastInputAudioSentTime = null;
+    _translationLatencySeconds = 0.0;
     _stopTimer?.cancel();
     _stopTimer = null;
     _pending.clear();

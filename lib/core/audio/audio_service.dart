@@ -212,6 +212,12 @@ class AudioService {
   Stream<double> get audioLevelStream => _audioLevelController.stream;
   bool get isRecording => _isRecording ?? false;
 
+  double get queuedAudioDurationSeconds {
+    final q = _pcmChunkQueue;
+    if (q == null || q.isEmpty) return 0.0;
+    return q.fold(0.0, (sum, c) => sum + (c.bytes.length / (c.sampleRate * 2.0)));
+  }
+
   Future<bool> checkAndRequestPermissions() async {
     if (kIsWeb) return true;
     final status = await Permission.microphone.status;
@@ -413,8 +419,8 @@ class AudioService {
         _replenishQueueFromBuffer(buffer);
       }
 
-  static const double maxPlaybackSpeed = 1.3;
-  static const double speedStep = 0.05;
+  const double maxPlaybackSpeed = 1.3;
+  const double speedStep = 0.05;
       final bool hasMoreAudio = _queue.isNotEmpty || (buffer != null && buffer.hasAudioToPlay);
       final bool shouldFadeIn = isStreamStart;
       final bool shouldFadeOut = !hasMoreAudio;

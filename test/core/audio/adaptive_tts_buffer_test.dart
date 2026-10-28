@@ -22,11 +22,11 @@ void main() {
 
     test('Initial pre-roll requires target delay before pre-roll finishes', () {
       expect(buffer.isPreRolling, isTrue);
-      expect(buffer.targetDelaySeconds, equals(0.4));
+      expect(buffer.targetDelaySeconds, equals(AdaptiveTtsBuffer.initialTargetDelay));
 
-      // Add 0.2 second of audio
+      // Add 0.1 second of audio (less than rearmTargetDelay 0.25s)
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(0.2),
+        bytes: generatePcmSeconds(0.1),
         sequenceNumber: 1,
         streamId: 's1',
       ));
@@ -34,7 +34,7 @@ void main() {
       expect(buffer.isPreRolling, isTrue);
       expect(buffer.hasAudioToPlay, isFalse);
 
-      // Add another 0.2 second (total 0.4s)
+      // Add another 0.2 second (total 0.3s >= 0.25s required delay)
       buffer.addChunk(SequencedAudioDelta(
         bytes: generatePcmSeconds(0.2),
         sequenceNumber: 2,
@@ -150,6 +150,13 @@ void main() {
 
       expect(buffer.isPreRolling, isFalse);
       expect(buffer.hasAudioToPlay, isTrue);
+    });
+
+    test('reportSectionLatency updates ttsLatencySeconds and adapts target delay', () {
+      expect(buffer.ttsLatencySeconds, equals(0.0));
+      buffer.reportSectionLatency(0.85);
+      expect(buffer.ttsLatencySeconds, equals(0.85));
+      expect(buffer.targetDelaySeconds, closeTo(1.05, 0.01));
     });
   });
 }

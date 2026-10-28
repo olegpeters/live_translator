@@ -33,6 +33,9 @@ class AdaptiveBufferStatus {
   final double currentPlaybackSpeed;
   final int outOfOrderEvents;
   final bool isPreRolling;
+  final double ttsLatencySeconds;
+  final bool hasRecentOutOfOrderEvent;
+  final double lastLateFragmentDelaySeconds;
 
   const AdaptiveBufferStatus({
     required this.targetDelaySeconds,
@@ -40,6 +43,9 @@ class AdaptiveBufferStatus {
     required this.currentPlaybackSpeed,
     required this.outOfOrderEvents,
     required this.isPreRolling,
+    this.ttsLatencySeconds = 0.0,
+    this.hasRecentOutOfOrderEvent = false,
+    this.lastLateFragmentDelaySeconds = 0.0,
   });
 }
 
@@ -51,9 +57,9 @@ class AdaptiveBufferStatus {
 /// 3. Adjusts target delay pessimistically (up to 10s) based on section latency and out-of-order fragments.
 /// 4. Slowly decays target delay (holding adapted delay for at least 30s) to maintain stability across utterances.
 class AdaptiveTtsBuffer {
-  static const double minTargetDelay = 0.3;      // 0.3s minimum base delay
-  static const double initialTargetDelay = 0.4;  // 0.4s initial pre-roll buffer
-  static const double maxTargetDelay = 2.5;     // 2.5s upper limit for real-time translation
+  static const double minTargetDelay = 3.0;      // 0.8s minimum base delay
+  static const double initialTargetDelay = 3.0;  // 1.0s initial pre-roll buffer
+  static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
   static const double rearmTargetDelay = 0.25;   // 0.25s light buffer for mid-stream recovery
   static const double minPlaybackSpeed = 1.0;
   static const double maxPlaybackSpeed = 1.3;
@@ -64,6 +70,10 @@ class AdaptiveTtsBuffer {
   int _outOfOrderEvents = 0;
   bool _isPreRolling = true;
   bool _isStreamEnding = false;
+  double _ttsLatencySeconds = 0.0;
+  bool _hasRecentOutOfOrderEvent = false;
+  double _lastLateFragmentDelaySeconds = 0.0;
+  Timer? _outOfOrderFlashTimer;
   DateTime? _preRollStartTime;
   int _lastPlayedSequenceNumber = 0;
   DateTime? _lastOutOfOrderTime;
@@ -79,6 +89,9 @@ class AdaptiveTtsBuffer {
   int get outOfOrderEvents => _outOfOrderEvents;
   bool get isPreRolling => _isPreRolling;
   bool get isStreamEnding => _isStreamEnding;
+  double get ttsLatencySeconds => _ttsLatencySeconds;
+  bool get hasRecentOutOfOrderEvent => _hasRecentOutOfOrderEvent;
+  double get lastLateFragmentDelaySeconds => _lastLateFragmentDelaySeconds;
 
   /// Returns total duration in seconds of currently buffered PCM audio.
   double get currentBufferDurationSeconds {
@@ -92,6 +105,9 @@ class AdaptiveTtsBuffer {
         currentPlaybackSpeed: _currentPlaybackSpeed,
         outOfOrderEvents: _outOfOrderEvents,
         isPreRolling: _isPreRolling,
+        ttsLatencySeconds: _ttsLatencySeconds,
+        hasRecentOutOfOrderEvent: _hasRecentOutOfOrderEvent,
+        lastLateFragmentDelaySeconds: _lastLateFragmentDelaySeconds,
       );
 
   void _notifyStatus() {
@@ -102,12 +118,17 @@ class AdaptiveTtsBuffer {
 
   /// Reset buffer state for a new translation session.
   void reset() {
+    _outOfOrderFlashTimer?.cancel();
+    _outOfOrderFlashTimer = null;
+    _hasRecentOutOfOrderEvent = false;
+    _lastLateFragmentDelaySeconds = 0.0;
     _queue.clear();
     _targetDelaySeconds = initialTargetDelay;
     _currentPlaybackSpeed = minPlaybackSpeed;
     _outOfOrderEvents = 0;
     _isPreRolling = true;
     _isStreamEnding = false;
+    _ttsLatencySeconds = 0.0;
     _preRollStartTime = null;
     _lastPlayedSequenceNumber = 0;
     _lastOutOfOrderTime = null;
@@ -118,6 +139,7 @@ class AdaptiveTtsBuffer {
   /// Pessimistically adapts target delay to the measured latency of the last audio section/utterance.
   void reportSectionLatency(double latencySeconds) {
     if (latencySeconds <= 0) return;
+    _ttsLatencySeconds = latencySeconds;
     // Add small safety margin (+0.2s) above measured section latency
     final proposedTarget = math.min(
       maxTargetDelay,
@@ -126,8 +148,8 @@ class AdaptiveTtsBuffer {
     if (proposedTarget > _targetDelaySeconds) {
       _targetDelaySeconds = proposedTarget;
       _lastOutOfOrderTime = DateTime.now();
-      _notifyStatus();
     }
+    _notifyStatus();
   }
 
   /// Adds a new audio delta chunk to the adaptive buffer.
@@ -218,12 +240,25 @@ class AdaptiveTtsBuffer {
   void _handleOutOfOrderEvent(SequencedAudioDelta delta) {
     _outOfOrderEvents++;
     _lastOutOfOrderTime = DateTime.now();
+    _hasRecentOutOfOrderEvent = true;
+
+    _outOfOrderFlashTimer?.cancel();
+    _outOfOrderFlashTimer = Timer(const Duration(milliseconds: 500), () {
+      _hasRecentOutOfOrderEvent = false;
+      _notifyStatus();
+    });
 
     // Immediately reset playback rate to 1.0x to avoid skipping audio during delay spike
     _currentPlaybackSpeed = minPlaybackSpeed;
 
+    _lastLateFragmentDelaySeconds = delta.durationSeconds;
+
     // Calculate required offset increase based on sequence gap and buffer state
-    int seqGap = math.max(1, (_lastPlayedSequenceNumber - delta.sequenceNumber) + 1);
+    int lastStream = _lastPlayedSequenceNumber ~/ 1000000;
+    int deltaStream = delta.sequenceNumber ~/ 1000000;
+    int seqGap = (lastStream == deltaStream)
+        ? math.max(1, ((_lastPlayedSequenceNumber % 1000000) - (delta.sequenceNumber % 1000000)) + 1)
+        : 1;
     double estimatedGapDuration = seqGap * 0.1; // ~100ms per missing frame estimate
     double newTarget = math.min(
       maxTargetDelay,
@@ -321,6 +356,7 @@ class AdaptiveTtsBuffer {
   }
 
   void dispose() {
+    _outOfOrderFlashTimer?.cancel();
     _queue.clear();
     _statusController.close();
   }

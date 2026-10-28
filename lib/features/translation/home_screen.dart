@@ -117,57 +117,61 @@ class HomeScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: provider.currentPlaybackSpeed > 1.01
-                                      ? Colors.orange.shade100
-                                      : Colors.blue.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: provider.currentPlaybackSpeed > 1.01
-                                        ? Colors.orange.shade900
-                                        : Colors.blue.shade900,
+                              Row(
+                                children: [
+                                  if (provider.hasRecentOutOfOrderEvent) ...[
+                                    Tooltip(
+                                      message:
+                                          'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(right: 6.0),
+                                        child: Icon(
+                                          Icons.alt_route,
+                                          size: 18,
+                                          color: Colors.orange.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: provider.currentPlaybackSpeed > 1.01
+                                          ? Colors.orange.shade100
+                                          : Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: provider.currentPlaybackSpeed > 1.01
+                                            ? Colors.orange.shade900
+                                            : Colors.blue.shade900,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                provider.isPreRolling
-                                    ? 'Puffern (Start-Versatz: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
-                                    : 'Audio in Flight: ${provider.audioInFlightSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (provider.ttsOutOfOrderEvents > 0)
-                                Text(
-                                  'Anpassungen: ${provider.ttsOutOfOrderEvents}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.red.shade700,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                            ],
+                          Text(
+                            provider.isPreRolling
+                                ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
+                                : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
-                              value: (provider.audioInFlightSeconds /
+                              value: (provider.phoneBufferSeconds /
                                       provider.targetDelaySeconds)
                                   .clamp(0.0, 1.0),
                               minHeight: 8,
@@ -175,11 +179,20 @@ class HomeScreen extends StatelessWidget {
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 provider.isPreRolling
                                     ? Colors.orange
-                                    : (provider.audioInFlightSeconds >=
+                                    : (provider.phoneBufferSeconds >=
                                             provider.targetDelaySeconds
                                         ? Colors.blue.shade700
                                         : Colors.lightBlue),
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue.shade900,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
