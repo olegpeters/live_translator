@@ -57,8 +57,8 @@ class AdaptiveBufferStatus {
 /// 3. Adjusts target delay pessimistically (up to 10s) based on section latency and out-of-order fragments.
 /// 4. Slowly decays target delay (holding adapted delay for at least 30s) to maintain stability across utterances.
 class AdaptiveTtsBuffer {
-  static const double minTargetDelay = 3.0;      // 0.8s minimum base delay
-  static const double initialTargetDelay = 3.0;  // 1.0s initial pre-roll buffer
+  static const double minTargetDelay = 2;      // minimum base delay
+  static const double initialTargetDelay = 3;  // initial pre-roll buffer
   static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
   static const double rearmTargetDelay = 0.25;   // 0.25s light buffer for mid-stream recovery
   static const double minPlaybackSpeed = 1.0;
@@ -343,15 +343,23 @@ class AdaptiveTtsBuffer {
 
     double bufferedDuration = currentBufferDurationSeconds;
 
-    // Only accelerate catch-up playback if buffered audio significantly exceeds target delay (+1.0s).
-    // Near or below target delay time, speed is strictly locked to 1.0x (normal speed).
-    if (bufferedDuration >= _targetDelaySeconds + 1.0) {
+    // Accelerate catch-up playback if buffered audio exceeds target delay + 0.5s.
+    // Maintain elevated speed until buffered audio catches up down to target delay (_targetDelaySeconds).
+    if (bufferedDuration > _targetDelaySeconds + 0.5) {
       _currentPlaybackSpeed = math.min(
         maxPlaybackSpeed,
         _currentPlaybackSpeed + speedStep,
       );
-    } else {
+    } else if (bufferedDuration <= _targetDelaySeconds) {
       _currentPlaybackSpeed = minPlaybackSpeed;
+    } else {
+      // Hysteresis buffer zone: gently step down speed as buffer approaches target delay
+      if (bufferedDuration < _targetDelaySeconds + 0.2) {
+        _currentPlaybackSpeed = math.max(
+          minPlaybackSpeed,
+          _currentPlaybackSpeed - speedStep,
+        );
+      }
     }
   }
 

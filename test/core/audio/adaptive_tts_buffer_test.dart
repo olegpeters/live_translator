@@ -118,7 +118,7 @@ void main() {
 
     test('Playback speed accelerates up to 1.3x when buffer accumulates extra audio', () {
       buffer.addChunk(SequencedAudioDelta(
-        bytes: generatePcmSeconds(2.5),
+        bytes: generatePcmSeconds(8),
         sequenceNumber: 1,
         streamId: 's1',
       ));
@@ -154,9 +154,18 @@ void main() {
 
     test('reportSectionLatency updates ttsLatencySeconds and adapts target delay', () {
       expect(buffer.ttsLatencySeconds, equals(0.0));
+      expect(buffer.targetDelaySeconds, equals(3.0));
+      buffer.reportSectionLatency(3.5);
+      expect(buffer.ttsLatencySeconds, equals(3.5));
+      expect(buffer.targetDelaySeconds, closeTo(3.7, 0.01));
+    });
+
+    test('reportSectionLatency updates ttsLatencySeconds but does not decrease target delay below current target', () {
+      expect(buffer.ttsLatencySeconds, equals(0.0));
+      expect(buffer.targetDelaySeconds, equals(3.0));
       buffer.reportSectionLatency(0.85);
       expect(buffer.ttsLatencySeconds, equals(0.85));
-      expect(buffer.targetDelaySeconds, closeTo(1.05, 0.01));
+      expect(buffer.targetDelaySeconds, equals(3.0));
     });
   });
 }

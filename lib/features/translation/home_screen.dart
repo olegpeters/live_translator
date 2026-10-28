@@ -80,128 +80,48 @@ class HomeScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Tooltip(
+                          message: isTranslating
+                              ? 'Tippen zum Stoppen'
+                              : 'Tippen zum Starten',
+                          child: GestureDetector(
+                            onTap: () {
+                              if (isTranslating) {
+                                provider.stopTranslation();
+                              } else {
+                                provider.startTranslation();
+                              }
+                            },
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isTranslating ? Colors.red : Colors.deepPurple,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (isTranslating ? Colors.red : Colors.deepPurple)
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 12,
+                                    spreadRadius: 3,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                isTranslating ? Icons.stop : Icons.mic,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
 
-                // Adaptive TTS Buffer Status Card
-                if (isTranslating) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 1,
-                    color: Colors.blue.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.graphic_eq,
-                                    size: 20,
-                                    color: Colors.blue.shade800,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'TTS Audio-Puffer & Sync',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  if (provider.hasRecentOutOfOrderEvent) ...[
-                                    Tooltip(
-                                      message:
-                                          'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(right: 6.0),
-                                        child: Icon(
-                                          Icons.alt_route,
-                                          size: 18,
-                                          color: Colors.orange.shade800,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: provider.currentPlaybackSpeed > 1.01
-                                          ? Colors.orange.shade100
-                                          : Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: provider.currentPlaybackSpeed > 1.01
-                                            ? Colors.orange.shade900
-                                            : Colors.blue.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            provider.isPreRolling
-                                ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
-                                : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: (provider.phoneBufferSeconds /
-                                      provider.targetDelaySeconds)
-                                  .clamp(0.0, 1.0),
-                              minHeight: 8,
-                              backgroundColor: Colors.blue.shade100,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                provider.isPreRolling
-                                    ? Colors.orange
-                                    : (provider.phoneBufferSeconds >=
-                                            provider.targetDelaySeconds
-                                        ? Colors.blue.shade700
-                                        : Colors.lightBlue),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.blue.shade900,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Audio Level Indicator (Input Volume Bar)
                 Column(
@@ -246,47 +166,130 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 24),
-
-                // Main Start / Stop Button
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      if (isTranslating) {
-                        provider.stopTranslation();
-                      } else {
-                        provider.startTranslation();
-                      }
-                    },
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isTranslating ? Colors.red : Colors.deepPurple,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isTranslating ? Colors.red : Colors.deepPurple)
-                                .withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            spreadRadius: 5,
+                // Adaptive TTS Buffer Status Card
+                if (isTranslating) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 1,
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.graphic_eq,
+                                    size: 20,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'TTS Audio-Puffer & Sync',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: provider.currentPlaybackSpeed > 1.01
+                                          ? Colors.orange.shade100
+                                          : Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: provider.currentPlaybackSpeed > 1.01
+                                            ? Colors.orange.shade900
+                                            : Colors.blue.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  provider.isPreRolling
+                                      ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
+                                      : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (provider.hasRecentOutOfOrderEvent)
+                                Tooltip(
+                                  message:
+                                      'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 8.0),
+                                    child: Icon(
+                                      Icons.alt_route,
+                                      size: 16,
+                                      color: Colors.orange.shade800,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (provider.phoneBufferSeconds /
+                                      provider.targetDelaySeconds)
+                                  .clamp(0.0, 1.0),
+                              minHeight: 8,
+                              backgroundColor: Colors.blue.shade100,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                provider.isPreRolling
+                                    ? Colors.orange
+                                    : (provider.phoneBufferSeconds >=
+                                            provider.targetDelaySeconds
+                                        ? Colors.blue.shade700
+                                        : Colors.lightBlue),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue.shade900,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
-                      child: Icon(
-                        isTranslating ? Icons.stop : Icons.mic,
-                        color: Colors.white,
-                        size: 56,
-                      ),
                     ),
                   ),
-                ),
+                ],
 
-                const SizedBox(height: 8),
-                Text(
-                  isTranslating ? 'Tippen zum Stoppen' : 'Tippen zum Starten',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
+                const SizedBox(height: 24),
 
                 const SizedBox(height: 24),
 
