@@ -33,6 +33,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final List<Map<String, String>> _voices = const [
     {'id': 'Daniel', 'name': 'Daniel (Männlich, Standard)'},
     {'id': 'Adrian', 'name': 'Adrian (Männlich)'},
+    {'id': 'Bohdan', 'name': 'Bohdan (Männlich)'},
+    {'id': 'Yana', 'name': 'Yana (Weiblich)'},
+    {'id': 'Arabella', 'name': 'Arabella (Weiblich)'},
+    {'id': 'Grace', 'name': 'Grace (Weiblich)'},
   ];
 
   final List<Map<String, String>> _ttsEngines = const [
