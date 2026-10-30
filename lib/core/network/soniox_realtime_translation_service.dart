@@ -44,9 +44,9 @@ class AudioDelta {
 
 class SonioxRealtimeTranslationService {
   static const String _sttBaseUrl =
-      'wss://stt-rt.soniox.com/transcribe-websocket';
+      'wss://stt-rt.eu.soniox.com/transcribe-websocket';
   static const String _ttsBaseUrl =
-      'wss://tts-rt.soniox.com/tts-websocket';
+      'wss://tts-rt.eu.soniox.com/tts-websocket';
 
   /// 50 ms of 24 kHz PCM16 mono audio (24000 * 0.05 * 2 bytes) for low latency.
   static const int frameBytes = 2400;
