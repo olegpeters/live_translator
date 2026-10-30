@@ -116,7 +116,7 @@ void main() {
       expect(popped3?.sequenceNumber, equals(1000003));
     });
 
-    test('Playback speed accelerates up to 1.3x when buffer accumulates extra audio', () {
+    test('Playback speed accelerates up to 2.0x when buffer accumulates extra audio', () {
       buffer.addChunk(SequencedAudioDelta(
         bytes: generatePcmSeconds(8),
         sequenceNumber: 1,
@@ -134,7 +134,24 @@ void main() {
         ));
       }
 
-      expect(buffer.currentPlaybackSpeed, lessThanOrEqualTo(1.3));
+      expect(buffer.currentPlaybackSpeed, greaterThan(1.0));
+      expect(buffer.currentPlaybackSpeed, lessThanOrEqualTo(2.0));
+    });
+
+    test('reportSectionLatency does not block speed acceleration', () {
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(8),
+        sequenceNumber: 1,
+        streamId: 's1',
+      ));
+
+      expect(buffer.currentPlaybackSpeed, greaterThan(1.0));
+
+      buffer.reportSectionLatency(3.5);
+
+      expect(buffer.targetDelaySeconds, closeTo(3.7, 0.01));
+      // Speedup is still active despite section latency reporting
+      expect(buffer.currentPlaybackSpeed, greaterThan(1.0));
     });
 
     test('flushPreRoll forces pre-roll completion immediately', () {

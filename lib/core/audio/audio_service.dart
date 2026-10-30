@@ -140,11 +140,11 @@ class AudioService {
   /// Digital gain multiplier for output audio playback (e.g. 1.0 = 100%, 2.0 = 200%).
   double outputGain = 2.0;
 
-  /// Playback speed rate multiplier (1.0 = normal, 1.3 = 30% faster).
+  /// Playback speed rate multiplier (1.0 = normal, 2.0 = 2x faster).
   double currentPlaybackRate = 1.0;
 
   Future<void> setPlaybackRate(double rate) async {
-    final clampedRate = rate.clamp(1.0, 1.3);
+    final clampedRate = rate.clamp(1.0, 2.0);
     if ((currentPlaybackRate - clampedRate).abs() > 0.01) {
       currentPlaybackRate = clampedRate;
       try {
@@ -343,17 +343,22 @@ class AudioService {
 
   void _replenishQueueFromBuffer(AdaptiveTtsBuffer buffer) {
     int currentBytes = _queue.fold(0, (sum, c) => sum + c.bytes.length);
-    // Replenish all available chunks in the jitter buffer up to maxBatchBytes
+    double requestedSpeed = buffer.currentPlaybackSpeed;
+
     while (currentBytes < maxBatchBytes && buffer.hasAudioToPlay) {
       final chunk = buffer.popNextChunk();
       if (chunk == null) break;
-      setPlaybackRate(buffer.currentPlaybackSpeed);
+      if (buffer.currentPlaybackSpeed > requestedSpeed) {
+        requestedSpeed = buffer.currentPlaybackSpeed;
+      }
       final processedBytes = outputGain != 1.0
           ? amplifyPcm16(chunk.bytes, outputGain)
           : chunk.bytes;
       _queue.add(_PcmChunk(processedBytes, chunk.sampleRate, chunk.streamId));
       currentBytes += processedBytes.length;
     }
+
+    setPlaybackRate(requestedSpeed);
   }
 
   Future<void> playAudioDelta(Uint8List pcmBytes,

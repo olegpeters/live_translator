@@ -57,12 +57,13 @@ class AdaptiveBufferStatus {
 /// 3. Adjusts target delay pessimistically (up to 10s) based on section latency and out-of-order fragments.
 /// 4. Slowly decays target delay (holding adapted delay for at least 30s) to maintain stability across utterances.
 class AdaptiveTtsBuffer {
-  static const double minTargetDelay = 2;      // minimum base delay
-  static const double initialTargetDelay = 3;  // initial pre-roll buffer
+  static const double minTargetDelay = 3.0;      // minimum base delay
+  static const double initialTargetDelay = 3.0;  // initial pre-roll buffer
   static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
   static const double rearmTargetDelay = 0.25;   // 0.25s light buffer for mid-stream recovery
   static const double minPlaybackSpeed = 1.0;
-  static const double maxPlaybackSpeed = 1.3;
+  static const double maxPlaybackSpeed = 2.0;    // Allow higher catch-up rate for large buffers
+  static const double maxBufferCapSeconds = 30.0; // Emergency cap to prevent runaway buffer lag
   static const double speedStep = 0.05;
 
   double _targetDelaySeconds = initialTargetDelay;
@@ -147,7 +148,6 @@ class AdaptiveTtsBuffer {
     );
     if (proposedTarget > _targetDelaySeconds) {
       _targetDelaySeconds = proposedTarget;
-      _lastOutOfOrderTime = DateTime.now();
     }
     _notifyStatus();
   }
@@ -320,48 +320,55 @@ class AdaptiveTtsBuffer {
       return;
     }
 
-    // Slowly decay _targetDelaySeconds back toward minTargetDelay ONLY if network has been stable for > 30s
+
+    // Decay _targetDelaySeconds back toward minTargetDelay when no recent out-of-order event
     if (_lastOutOfOrderTime != null) {
       final elapsedSinceAnomaly = DateTime.now().difference(_lastOutOfOrderTime!);
-      if (elapsedSinceAnomaly >= const Duration(seconds: 5)) {
+      if (elapsedSinceAnomaly >= const Duration(seconds: 1)) {
         if (_targetDelaySeconds > minTargetDelay) {
           _targetDelaySeconds = math.max(
             minTargetDelay,
-            _targetDelaySeconds - 0.005,
+            _targetDelaySeconds - 0.01,
           );
         }
       } else {
-        _currentPlaybackSpeed = minPlaybackSpeed;
-        return;
+        // Hold speed at 1.0x briefly (< 1s) during active out-of-order gap recovery
+        // unless buffer is significantly above target delay (+2.0s)
+        if (currentBufferDurationSeconds <= _targetDelaySeconds + 2.0) {
+          _currentPlaybackSpeed = minPlaybackSpeed;
+          return;
+        }
       }
     } else if (_targetDelaySeconds > minTargetDelay) {
       _targetDelaySeconds = math.max(
         minTargetDelay,
-        _targetDelaySeconds - 0.005,
+        _targetDelaySeconds - 0.01,
       );
     }
 
-    double bufferedDuration = currentBufferDurationSeconds;
+    final double bufferedDuration = currentBufferDurationSeconds;
+    final double excessBuffer = bufferedDuration - _targetDelaySeconds;
 
-    // Accelerate catch-up playback if buffered audio exceeds target delay + 0.5s.
-    // Maintain elevated speed until buffered audio catches up down to target delay (_targetDelaySeconds).
-    if (bufferedDuration > _targetDelaySeconds + 0.5) {
-      _currentPlaybackSpeed = math.min(
-        maxPlaybackSpeed,
-        _currentPlaybackSpeed + speedStep,
-      );
-    } else if (bufferedDuration <= _targetDelaySeconds) {
+    if (excessBuffer <= 0.2) {
       _currentPlaybackSpeed = minPlaybackSpeed;
     } else {
-      // Hysteresis buffer zone: gently step down speed as buffer approaches target delay
-      if (bufferedDuration < _targetDelaySeconds + 0.2) {
-        _currentPlaybackSpeed = math.max(
-          minPlaybackSpeed,
-          _currentPlaybackSpeed - speedStep,
+      // Proportional speed scaling based on excess buffer duration above target delay:
+      // excess 0.2s .. 2.0s -> 1.05x .. 1.25x
+      // excess 2.0s .. 5.0s -> 1.25x .. 1.50x
+      // excess 5.0s .. 15.0s -> 1.50x .. 2.00x
+      if (excessBuffer <= 2.0) {
+        _currentPlaybackSpeed = 1.0 + (excessBuffer / 2.0) * 0.25;
+      } else if (excessBuffer <= 5.0) {
+        _currentPlaybackSpeed = 1.25 + ((excessBuffer - 2.0) / 3.0) * 0.25;
+      } else {
+        _currentPlaybackSpeed = math.min(
+          maxPlaybackSpeed,
+          1.50 + ((excessBuffer - 5.0) / 10.0) * 0.50,
         );
       }
     }
   }
+
 
   void dispose() {
     _outOfOrderFlashTimer?.cancel();
