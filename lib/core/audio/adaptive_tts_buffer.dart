@@ -60,7 +60,6 @@ class AdaptiveTtsBuffer {
   static const double minTargetDelay = 3.0;      // minimum base delay
   static const double initialTargetDelay = 3.0;  // initial pre-roll buffer
   static const double maxTargetDelay = 10.0;     // 10s upper limit for real-time translation
-  static const double rearmTargetDelay = 0.25;   // 0.25s light buffer for mid-stream recovery
   static const double minPlaybackSpeed = 1.0;
   static const double maxPlaybackSpeed = 2.0;    // Allow higher catch-up rate for large buffers
   static const double maxBufferCapSeconds = 30.0; // Emergency cap to prevent runaway buffer lag
@@ -219,8 +218,8 @@ class AdaptiveTtsBuffer {
       } else {
         _preRollStartTime ??= DateTime.now();
         final waitedMs = DateTime.now().difference(_preRollStartTime!).inMilliseconds;
-        final requiredDelay = math.min(_targetDelaySeconds, rearmTargetDelay);
-        final maxWaitMs = (requiredDelay * 1000 + 400).toInt();
+        final requiredDelay = _targetDelaySeconds;
+        final maxWaitMs = (requiredDelay * 1000 + 500).toInt();
         if (currentBufferDurationSeconds >= requiredDelay || waitedMs >= maxWaitMs) {
           _isPreRolling = false;
           _preRollStartTime = null;
@@ -273,13 +272,16 @@ class AdaptiveTtsBuffer {
     _targetDelaySeconds = newTarget;
   }
 
-  /// Rearms pre-roll state when audio queue has drained and playback becomes idle.
+  /// Rearms pre-roll state when audio queue drops below target delay and playback becomes idle / underruns.
   void rearmPreRoll() {
     _isStreamEnding = false;
-    if (_queue.isEmpty && !_isPreRolling) {
+    if (currentBufferDurationSeconds < _targetDelaySeconds && !_isPreRolling) {
       _isPreRolling = true;
       _preRollStartTime = null;
-      AppLogger.info('AdaptiveTtsBuffer queue drained; re-arming pre-roll state', tag: 'AdaptiveTtsBuffer');
+      AppLogger.info(
+        'AdaptiveTtsBuffer queue drained/underrun below target delay (${currentBufferDurationSeconds.toStringAsFixed(2)}s < ${_targetDelaySeconds.toStringAsFixed(2)}s); re-arming pre-roll state',
+        tag: 'AdaptiveTtsBuffer',
+      );
       _notifyStatus();
     }
   }
