@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedTtsEngine = 'soniox';
   double _outputGain = SettingsRepository.defaultOutputGain;
   bool _enableSourceTranscription = false;
+  bool _voiceProcessing = true;
   bool _isLoading = true;
 
   final List<Map<String, String>> _languages = const [
@@ -58,6 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final gain = await widget.settingsRepository.getOutputGain();
     final enableSourceTranscription =
         await widget.settingsRepository.getEnableSourceTranscription();
+    final voiceProcessing = await widget.settingsRepository.getVoiceProcessing();
 
     setState(() {
       if (apiKey != null) {
@@ -68,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _selectedTtsEngine = ttsEngine;
       _outputGain = gain;
       _enableSourceTranscription = enableSourceTranscription;
+      _voiceProcessing = voiceProcessing;
       _isLoading = false;
     });
   }
@@ -78,6 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setVoice(_selectedVoice);
     await widget.settingsRepository.setTtsEngine(_selectedTtsEngine);
     await widget.settingsRepository.setOutputGain(_outputGain);
+    await widget.settingsRepository.setVoiceProcessing(_voiceProcessing);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
 
@@ -238,6 +242,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'Erhöht die digitale Lautstärke der gesprochenen Übersetzung (100% - 300%). Standard ist 200%.',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Sprachverarbeitung Mikrofon'),
+                    subtitle: const Text(
+                      'Echo- & Rauschunterdrückung, automatische Verstärkung. '
+                      'Bei Lautsprecher-Ausgabe einschalten; mit Kopfhörern ausschalten, '
+                      'da sonst Sprache während der Wiedergabe unterdrückt werden kann.',
+                    ),
+                    value: _voiceProcessing,
+                    onChanged: (val) => setState(() => _voiceProcessing = val),
                   ),
                   const SizedBox(height: 24),
                   const Text(

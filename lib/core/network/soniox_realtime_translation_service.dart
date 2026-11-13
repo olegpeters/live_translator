@@ -506,7 +506,9 @@ class SonioxRealtimeTranslationService {
               tokenObj['final'] as bool? ??
               true;
 
-          _log('STT Token: "$text" [status: $translationStatus, isFinal: $isFinal]');
+          if (translationStatus != 'original') {
+            _log('STT Token: "$text" [status: $translationStatus, isFinal: $isFinal]');
+          }
 
           // Check if token contains audio
           final String? tokenAudio = tokenObj['audio'] as String? ??

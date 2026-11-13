@@ -10,6 +10,7 @@ class SettingsRepository {
   static const String _keyEnableSourceTranscription =
       'enable_source_transcription';
   static const String _keyTtsEngine = 'tts_engine';
+  static const String _keyVoiceProcessing = 'voice_processing';
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -78,6 +79,18 @@ class SettingsRepository {
   Future<void> setEnableSourceTranscription(bool enabled) async {
     await init();
     await _prefs?.setBool(_keyEnableSourceTranscription, enabled);
+  }
+
+  /// Android/OS voice processing (echo cancel, noise suppression, auto gain) on mic input.
+  /// Useful with loudspeaker output; with headphones it can suppress speech during playback.
+  Future<bool> getVoiceProcessing() async {
+    await init();
+    return _prefs?.getBool(_keyVoiceProcessing) ?? false;
+  }
+
+  Future<void> setVoiceProcessing(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keyVoiceProcessing, enabled);
   }
 
   Future<String> getTtsEngine() async {

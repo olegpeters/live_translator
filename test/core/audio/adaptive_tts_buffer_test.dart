@@ -105,13 +105,14 @@ void main() {
       expect(buffer.hasAudioToPlay, isTrue);
     });
 
-    test('isLastInStream flag flushes pre-roll for trailing audio playback', () {
-      // Add small 0.3s chunk marked as stream end
+    test('isLastInStream flag flushes pre-roll for trailing audio once target delay has elapsed', () {
+      // Add small 0.3s chunk marked as stream end, received a target delay ago
       buffer.addChunk(SequencedAudioDelta(
         bytes: generatePcmSeconds(0.3),
         sequenceNumber: 1,
         streamId: 's1',
         isLastInStream: true,
+        receivedAt: DateTime.now().subtract(const Duration(seconds: 3)),
       ));
 
       expect(buffer.isStreamEnding, isTrue);
@@ -226,6 +227,132 @@ void main() {
       buffer.reportSectionLatency(0.85);
       expect(buffer.ttsLatencySeconds, equals(0.85));
       expect(buffer.targetDelaySeconds, equals(3.0));
+    });
+
+    test('rearmPreRoll after stream end chunk maintains pre-roll barrier for subsequent utterance', () {
+      // Stream s1 completes with isLastInStream
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(1.0),
+        sequenceNumber: 1000001,
+        streamId: 's1',
+        isLastInStream: true,
+        receivedAt: DateTime.now().subtract(const Duration(seconds: 3)),
+      ));
+
+      expect(buffer.isPreRolling, isFalse);
+      expect(buffer.hasAudioToPlay, isTrue);
+
+      final popped = buffer.popNextChunk();
+      expect(popped, isNotNull);
+      expect(buffer.currentBufferDurationSeconds, equals(0.0));
+
+      // Buffer drains and rearms pre-roll
+      buffer.rearmPreRoll();
+      expect(buffer.isPreRolling, isTrue);
+      expect(buffer.hasAudioToPlay, isFalse);
+
+      // New utterance s2 arrives (first chunk 1.0s < targetDelay 3.0s)
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(1.0),
+        sequenceNumber: 2000001,
+        streamId: 's2',
+        isLastInStream: false,
+      ));
+
+      // Pre-roll MUST remain active until target delay is reached!
+      expect(buffer.isPreRolling, isTrue);
+      expect(buffer.hasAudioToPlay, isFalse);
+
+      // Add remaining 2.0s audio to hit target delay
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(2.0),
+        sequenceNumber: 2000002,
+        streamId: 's2',
+        isLastInStream: false,
+      ));
+
+      expect(buffer.isPreRolling, isFalse);
+      expect(buffer.hasAudioToPlay, isTrue);
+    });
+
+    test('ended short stream keeps pre-roll until target delay elapsed', () {
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(0.5),
+        sequenceNumber: 1000001,
+        streamId: 'stream-1',
+        isLastInStream: true,
+      ));
+
+      expect(buffer.isStreamEnding, isTrue);
+      expect(buffer.isPreRolling, isTrue);
+      expect(buffer.hasAudioToPlay, isFalse);
+    });
+
+    test('steady playback: chunk arriving into drained buffer does not re-arm pre-roll', () {
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(3.0),
+        sequenceNumber: 1000001,
+        streamId: 'stream-1',
+      ));
+      expect(buffer.popNextChunk(), isNotNull); // AudioService takes everything
+      expect(buffer.currentBufferDurationSeconds, equals(0.0));
+
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(0.2),
+        sequenceNumber: 1000002,
+        streamId: 'stream-1',
+      ));
+
+      expect(buffer.isPreRolling, isFalse);
+      expect(buffer.hasAudioToPlay, isTrue);
+    });
+
+    test('interleaved chunks of consecutive streams are not out-of-order and do not re-arm pre-roll', () {
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(3.0), sequenceNumber: 1000001, streamId: 'stream-1'));
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(0.2), sequenceNumber: 2000001, streamId: 'stream-2'));
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(0.2), sequenceNumber: 1000002, streamId: 'stream-1'));
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(0.2), sequenceNumber: 2000002, streamId: 'stream-2'));
+
+      expect(buffer.outOfOrderEvents, equals(0));
+      expect(buffer.targetDelaySeconds, equals(3.0));
+      expect(buffer.isPreRolling, isFalse);
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(1000001));
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(1000002));
+    });
+
+    test('end marker of another stream does not release pre-roll of current audio', () {
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(0.5), sequenceNumber: 2000001, streamId: 'stream-2'));
+      buffer.addChunk(SequencedAudioDelta(bytes: Uint8List(0), sequenceNumber: 1000009, streamId: 'stream-1', isLastInStream: true));
+
+      expect(buffer.isPreRolling, isTrue);
+      expect(buffer.hasAudioToPlay, isFalse);
+    });
+
+    test('next stream is held while previous stream still delivers; its tail is not dropped', () {
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(3.0), sequenceNumber: 1000001, streamId: 'stream-1'));
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(1000001));
+
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(1.0), sequenceNumber: 2000001, streamId: 'stream-2'));
+      // stream-1 has not ended and delivered audio just now -> hold stream-2
+      expect(buffer.hasAudioToPlay, isFalse);
+
+      // stream-1 tail arrives late -> must be played, not dropped
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(0.3), sequenceNumber: 1000002, streamId: 'stream-1', isLastInStream: true));
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(1000002));
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(2000001));
+    });
+
+    test('next stream starts once previous stream stalled longer than transition wait', () {
+      buffer.addChunk(SequencedAudioDelta(
+        bytes: generatePcmSeconds(3.0),
+        sequenceNumber: 1000001,
+        streamId: 'stream-1',
+        receivedAt: DateTime.now().subtract(const Duration(seconds: 2)),
+      ));
+      expect(buffer.popNextChunk(), isNotNull);
+
+      buffer.addChunk(SequencedAudioDelta(bytes: generatePcmSeconds(1.0), sequenceNumber: 2000001, streamId: 'stream-2'));
+      expect(buffer.popNextChunk()?.sequenceNumber, equals(2000001));
     });
   });
 }

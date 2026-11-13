@@ -160,7 +160,6 @@ class TranslationProvider extends ChangeNotifier {
     _sourceTranscriptSubscription =
         translationService.onSourceTranscriptDelta.listen((textDelta) {
       _sourceTranscript += textDelta;
-      AppLogger.debug('Source transcript updated (+${textDelta.length} chars): "$textDelta"', tag: 'TranslationProvider');
       notifyListeners();
     });
 
@@ -309,9 +308,10 @@ class TranslationProvider extends ChangeNotifier {
     _enableSourceTranscription =
         await settingsRepository.getEnableSourceTranscription();
     audioService.outputGain = await settingsRepository.getOutputGain();
+    audioService.voiceProcessing = await settingsRepository.getVoiceProcessing();
 
     AppLogger.info(
-      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${audioService.outputGain}x)',
+      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${audioService.outputGain}x, voiceProcessing=${audioService.voiceProcessing})',
       tag: 'TranslationProvider',
     );
 

@@ -125,6 +125,31 @@ Uint8List applyPcm16EdgeSmoothing(
   return smoothedBytes;
 }
 
+class _MicStats {
+  double sumSquares = 0;
+  double peakRms = 0;
+  int samples = 0;
+  int chunks = 0;
+
+  void add(double rms, int n) {
+    sumSquares += rms * rms * n;
+    samples += n;
+    chunks++;
+    if (rms > peakRms) peakRms = rms;
+  }
+
+  static double _db(double rms) => rms <= 0 ? -120 : 20 * log(rms / 32768.0) / ln10;
+  double get avgDbfs => samples == 0 ? -120 : _db(sqrt(sumSquares / samples));
+  double get peakDbfs => _db(peakRms);
+
+  void reset() {
+    sumSquares = 0;
+    peakRms = 0;
+    samples = 0;
+    chunks = 0;
+  }
+}
+
 class _PcmChunk {
   final Uint8List bytes;
   final int sampleRate;
@@ -139,6 +164,10 @@ class AudioService {
 
   /// Digital gain multiplier for output audio playback (e.g. 1.0 = 100%, 2.0 = 200%).
   double outputGain = 2.0;
+
+  /// Enables OS voice processing (echo cancel, noise suppression, auto gain) on mic input.
+  /// Applied when recording starts.
+  bool voiceProcessing = true;
 
   /// Playback speed rate multiplier (1.0 = normal, 2.0 = 2x faster).
   double currentPlaybackRate = 1.0;
@@ -168,11 +197,12 @@ class AudioService {
   bool? _isRecording;
   bool _flushRequested = false;
 
-  /// Target minimum bytes buffered before starting a batch playback (~200ms at 24kHz PCM16 mono)
-  static const int minBatchBytes = 9600;
-
-  /// Maximum bytes to batch in a single play() call (~3.0s at 24kHz PCM16 mono)
-  static const int maxBatchBytes = 144000;
+  /// Maximum bytes to batch in a single play() call (~2.0s at 24kHz PCM16 mono).
+  ///
+  /// Every play() call reloads the player source and leaves a small audible gap, so batches
+  /// must not be too small. Larger batches don't hurt reordering: sequence numbers are assigned
+  /// on receipt (in-order per stream) and stream transitions are held by [AdaptiveTtsBuffer].
+  static const int maxBatchBytes = 96000;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
@@ -256,9 +286,9 @@ class AudioService {
       encoder: AudioEncoder.pcm16bits,
       sampleRate: inputSampleRate,
       numChannels: 1,
-      echoCancel: true,
-      noiseSuppress: true,
-      autoGain: true,
+      echoCancel: voiceProcessing,
+      noiseSuppress: voiceProcessing,
+      autoGain: voiceProcessing,
       androidConfig: const AndroidRecordConfig(
         audioSource: AndroidAudioSource.mic,
         audioManagerMode: AudioManagerMode.modeNormal,
@@ -333,6 +363,34 @@ class AudioService {
     if (!_audioLevelController.isClosed) {
       _audioLevelController.add(level);
     }
+
+    _collectMicDiagnostics(rms, count);
+  }
+
+  // --- Mic diagnostics: compares input level while TTS playback is active vs. idle ---
+  DateTime? _micDiagWindowStart;
+  final _micDiag = {
+    true: _MicStats(),  // playback active
+    false: _MicStats(), // playback idle
+  };
+
+  void _collectMicDiagnostics(double rms, int samples) {
+    final now = DateTime.now();
+    _micDiagWindowStart ??= now;
+    _micDiag[_playing]!.add(rms, samples);
+
+    if (now.difference(_micDiagWindowStart!).inMilliseconds < 2000) return;
+    String fmt(_MicStats s) => s.samples == 0
+        ? '-'
+        : 'avg ${s.avgDbfs.toStringAsFixed(1)} dBFS, peak ${s.peakDbfs.toStringAsFixed(1)} dBFS, '
+            '${(s.samples / inputSampleRate).toStringAsFixed(2)}s audio, ${s.chunks} chunks';
+    AppLogger.debug(
+      'MicDiag playing: [${fmt(_micDiag[true]!)}] | idle: [${fmt(_micDiag[false]!)}]',
+      tag: 'AudioService',
+    );
+    _micDiag[true]!.reset();
+    _micDiag[false]!.reset();
+    _micDiagWindowStart = now;
   }
 
   Future<void> pumpFromBuffer(AdaptiveTtsBuffer buffer) async {
@@ -403,7 +461,7 @@ class AudioService {
       int batchedBytes = 0;
       while (_queue.isNotEmpty &&
           _queue.first.sampleRate == sampleRate &&
-          (currentStreamId == null || _queue.first.streamId == currentStreamId) &&
+          _queue.first.streamId == currentStreamId &&
           batchedBytes < maxBatchBytes) {
         final chunk = _queue.removeAt(0);
         chunks.add(chunk.bytes);
@@ -424,8 +482,6 @@ class AudioService {
         _replenishQueueFromBuffer(buffer);
       }
 
-  const double maxPlaybackSpeed = 1.3;
-  const double speedStep = 0.05;
       final bool hasMoreAudio = _queue.isNotEmpty || (buffer != null && buffer.hasAudioToPlay);
       final bool shouldFadeIn = isStreamStart;
       final bool shouldFadeOut = !hasMoreAudio;
@@ -489,7 +545,10 @@ class AudioService {
       pumpFromBuffer(buffer);
     } else if (_queue.isNotEmpty) {
       _startPlaybackLoop();
-    } else if (buffer != null) {
+    } else if (buffer != null && !buffer.hasQueuedAudio) {
+      // Real underrun: player idle and buffer drained -> rebuild target delay before resuming.
+      // If audio is queued but temporarily held (gap / stream transition), the buffer
+      // emits a status event when the hold expires, which restarts the pump.
       buffer.rearmPreRoll();
     }
   }
