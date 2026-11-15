@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/audio/wav_file_writer.dart';
 import '../../core/logging/app_logger.dart';
 
 class LogViewerScreen extends StatefulWidget {
@@ -91,9 +92,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       final file = File(filePath);
       await file.writeAsString(formattedText);
 
-      final xFile = XFile(file.path, mimeType: 'text/plain', name: fileName);
+      final files = [XFile(file.path, mimeType: 'text/plain', name: fileName)];
+      // Attach the latest diagnostic mic recording, if any.
+      final docsDir = await getApplicationDocumentsDirectory();
+      await for (final entity in docsDir.list()) {
+        final name = entity.uri.pathSegments.last;
+        if (entity is File && name.startsWith(WavFileWriter.filePrefix)) {
+          files.add(XFile(entity.path, mimeType: 'audio/wav', name: name));
+        }
+      }
       final result = await Share.shareXFiles(
-        [xFile],
+        files,
         subject: 'Live Translator App Log ($fileName)',
         text: 'Live Translator Debugging-Protokoll',
       );
