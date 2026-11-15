@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_translator/core/network/soniox_realtime_translation_service.dart';
+import 'package:live_translator/core/translation/glossary.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class FakeWebSocketSink implements WebSocketSink {
@@ -66,6 +67,18 @@ class FakeWebSocketChannel implements WebSocketChannel {
 
 Future<void> pump() => Future<void>.delayed(Duration.zero);
 
+void sendTranslation(FakeWebSocketChannel stt, String text) => stt.serverSend({
+      'tokens': [
+        {'text': text, 'translation_status': 'translation', 'is_final': true}
+      ],
+    });
+
+void sendEnd(FakeWebSocketChannel stt) => stt.serverSend({
+      'tokens': [
+        {'text': '<end>', 'is_final': true}
+      ],
+    });
+
 void main() {
   group('SonioxRealtimeTranslationService basics', () {
     test('initial state is disconnected', () async {
@@ -119,7 +132,7 @@ void main() {
 
       final sttConfigs = sttChannel.jsonSent;
       expect(sttConfigs, hasLength(1));
-      expect(sttConfigs.first['api_key'], 'soniox-test-key');
+      expect(sttConfigs.first.containsKey('api_key'), isFalse);
       expect(sttConfigs.first['model'], 'stt-rt-v5');
       expect(sttConfigs.first['translation']['target_language'], 'ru');
 
@@ -194,15 +207,18 @@ void main() {
 
       expect(await future, 'Доброе утро.');
 
+      // Sentence end is only confirmed by following whitespace or the STT endpoint.
+      sendEnd(sttChannel);
+      await pump();
+
       final ttsSent = ttsChannel.jsonSent;
-      // Index 0 is the initial config; subsequent entries are the forwarded text tokens
-      expect(ttsSent.length, greaterThanOrEqualTo(2));
+      expect(ttsSent.first['model'], 'tts-rt-v2');
       final combinedTtsText = ttsSent
-          .skip(1)
-          .map((m) => m['text'] as String? ?? '')
+          .where((m) => m.containsKey('text'))
+          .map((m) => m['text'] as String)
           .join();
       expect(combinedTtsText, 'Доброе утро.');
-      expect(ttsSent.last['text_end'], isFalse);
+      expect(ttsSent.last['text_end'], isTrue);
     });
 
     test('TTS incoming audio is base64 decoded and emitted on onAudioDelta', () async {
@@ -211,9 +227,12 @@ void main() {
         targetLanguage: 'ru',
       );
 
+      sendTranslation(sttChannel, 'Привет,');
+      await pump();
       final future = service.onAudioDelta.first;
       final payload = base64Encode([10, 20, 30, 40]);
       ttsChannel.serverSend({
+        'stream_id': 'stream-2',
         'audio': payload,
         'audio_end': false,
       });
@@ -223,44 +242,24 @@ void main() {
       expect(delta.sampleRate, 24000);
     });
 
-    test('text with punctuation sends text_end false and maintains active stream', () async {
-      await service.connect(
-        apiKey: 'soniox-test-key',
-        targetLanguage: 'ru',
-      );
+    test('confirmed sentence end closes the TTS stream; commas keep it open', () async {
+      await service.connect(apiKey: 'soniox-test-key', targetLanguage: 'ru');
 
-      sttChannel.serverSend({
-        'tokens': [
-          {
-            'text': 'Здравствуйте.',
-            'translation_status': 'translation',
-          }
-        ],
-      });
+      sendTranslation(sttChannel, 'Здравствуйте.');
+      await pump();
+      sendTranslation(sttChannel, ' Эм,');
+      await pump();
+      sendTranslation(sttChannel, ' да');
       await pump();
 
-      sttChannel.serverSend({
-        'tokens': [
-          {
-            'text': ' Эм,',
-            'translation_status': 'translation',
-          }
-        ],
-      });
-      await pump();
-
-      final ttsSent = ttsChannel.jsonSent;
-      // Index 0: config for stream-2
-      // Index 1: "Здравствуйте." (text_end: false)
-      // Index 2: " Эм," (text_end: false)
-      final textMessages = ttsSent.where((msg) => msg.containsKey('text')).toList();
-      expect(textMessages.length, equals(2));
-      expect(textMessages[0]['text'], equals('Здравствуйте.'));
-      expect(textMessages[0]['text_end'], isFalse);
-      expect(textMessages[0]['stream_id'], equals('stream-2'));
-      expect(textMessages[1]['text'], equals(' Эм,'));
+      final textMessages = ttsChannel.jsonSent.where((m) => m.containsKey('text')).toList();
+      expect(textMessages, hasLength(2));
+      expect(textMessages[0]['text'], 'Здравствуйте.');
+      expect(textMessages[0]['text_end'], isTrue);
+      expect(textMessages[0]['stream_id'], 'stream-2');
+      expect(textMessages[1]['text'], 'Эм,');
       expect(textMessages[1]['text_end'], isFalse);
-      expect(textMessages[1]['stream_id'], equals('stream-2'));
+      expect(textMessages[1]['stream_id'], 'stream-3');
     });
 
     test('utterance end sends text_end true and new utterance starts new stream', () async {
@@ -294,22 +293,15 @@ void main() {
       expect(endMsg['text_end'], isTrue);
       expect(endMsg['stream_id'], equals('stream-2'));
 
-      // New utterance token should start stream-3
-      sttChannel.serverSend({
-        'tokens': [
-          {
-            'text': ' Понятно.',
-            'translation_status': 'translation',
-          }
-        ],
-      });
+      // New utterance starts stream-3
+      sendTranslation(sttChannel, ' Понятно.');
+      sendEnd(sttChannel);
       await pump();
 
-      final ttsSent2 = ttsChannel.jsonSent;
-      final lastTextMsg = ttsSent2.last;
+      final lastTextMsg = ttsChannel.jsonSent.last;
       expect(lastTextMsg['stream_id'], equals('stream-3'));
-      expect(lastTextMsg['text'], equals(' Понятно.'));
-      expect(lastTextMsg['text_end'], isFalse);
+      expect(lastTextMsg['text'], equals('Понятно.'));
+      expect(lastTextMsg['text_end'], isTrue);
     });
 
     test('interleaved audio chunks from stream-2 and stream-3 are emitted in strict stream sequence', () async {
@@ -345,6 +337,7 @@ void main() {
           {'text': 'Sentence two.', 'translation_status': 'translation'}
         ],
       });
+      sendEnd(sttChannel);
       await pump();
 
       // Interleaved server response: stream-2 chunk A, stream-3 chunk 1, stream-2 chunk B (final), stream-3 chunk 2
@@ -378,69 +371,26 @@ void main() {
       await sub.cancel();
     });
 
-    test('late audio arriving for an already completed stream is passed to adaptive buffer', () async {
-      await service.connect(
-        apiKey: 'soniox-test-key',
-        targetLanguage: 'ru',
-      );
+    test('audio after stream termination is dropped; audio before termination is kept', () async {
+      await service.connect(apiKey: 'soniox-test-key', targetLanguage: 'ru');
+      final received = <AudioDelta>[];
+      final sub = service.onAudioDelta.listen(received.add);
 
-      final receivedAudio = <Uint8List>[];
-      final sub = service.onAudioDelta.listen((delta) {
-        receivedAudio.add(delta.bytes);
-      });
-
-      // Start stream-2
-      sttChannel.serverSend({
-        'tokens': [
-          {'text': 'Sentence one.', 'translation_status': 'translation'}
-        ],
-      });
+      sendTranslation(sttChannel, 'Sentence one.');
+      sendEnd(sttChannel);
       await pump();
 
-      // Complete stream-2
-      ttsChannel.serverSend({
-        'stream_id': 'stream-2',
-        'audio': base64Encode([10, 10]),
-        'audio_end': true,
-      });
+      ttsChannel.serverSend({'stream_id': 'stream-2', 'audio': base64Encode([10, 10]), 'audio_end': true});
+      ttsChannel.serverSend({'stream_id': 'stream-2', 'terminated': true});
+      await pump();
+      ttsChannel.serverSend({'stream_id': 'stream-2', 'audio': base64Encode([99, 99])});
       await pump();
 
-      expect(receivedAudio, hasLength(1));
-
-      // Start stream-3
-      sttChannel.serverSend({
-        'tokens': [
-          {'text': '<end>'}
-        ],
-      });
-      sttChannel.serverSend({
-        'tokens': [
-          {'text': 'Sentence two.', 'translation_status': 'translation'}
-        ],
-      });
-      await pump();
-
-      // Send late audio for completed stream-2
-      ttsChannel.serverSend({
-        'stream_id': 'stream-2',
-        'audio': base64Encode([99, 99]),
-      });
-      await pump();
-
-      // Send valid audio for stream-3
-      ttsChannel.serverSend({
-        'stream_id': 'stream-3',
-        'audio': base64Encode([20, 20]),
-        'audio_end': true,
-      });
-      await pump();
-
-      // Verify late chunk [99, 99] is emitted with stream-2 sequence for AdaptiveTtsBuffer
-      expect(receivedAudio, hasLength(3));
-      expect(receivedAudio[0], equals([10, 10]));
-      expect(receivedAudio[1], equals([99, 99]));
-      expect(receivedAudio[2], equals([20, 20]));
-
+      expect(received.map((d) => d.bytes.toList()), [
+        [10, 10],
+      ]);
+      expect(received.single.isLastInStream, isTrue);
+      expect(received.single.sequenceNumber, 2000001);
       await sub.cancel();
     });
 
@@ -469,6 +419,96 @@ void main() {
       final ttsSent = ttsChannel.jsonSent;
       expect(ttsSent.any((msg) => msg['text_end'] == true), isTrue);
       expect(service.currentState, TranslationConnectionState.closing);
+    });
+
+    test('reconnect within session keeps TTS stream sequence numbers monotonic', () async {
+      await service.connect(apiKey: 'k', targetLanguage: 'ru');
+      final deltas = <AudioDelta>[];
+      final sub = service.onAudioDelta.listen(deltas.add);
+
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Привет.', 'translation_status': 'translation', 'is_final': true},
+        ],
+      });
+      sendEnd(sttChannel);
+      await pump();
+      final firstStream = ttsChannel.jsonSent.firstWhere((m) => m.containsKey('model'))['stream_id'];
+      ttsChannel.serverSend({'audio': base64Encode([1, 2]), 'stream_id': firstStream});
+      await pump();
+
+      await service.close();
+      await service.connect(apiKey: 'k', targetLanguage: 'ru', newSession: false);
+
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Снова.', 'translation_status': 'translation', 'is_final': true},
+        ],
+      });
+      sendEnd(sttChannel);
+      await pump();
+      final secondStream = ttsChannel.jsonSent.lastWhere((m) => m.containsKey('model'))['stream_id'];
+      expect(secondStream, isNot(firstStream));
+      ttsChannel.serverSend({'audio': base64Encode([3, 4]), 'stream_id': secondStream});
+      await pump();
+
+      // stream-2 had partial audio when the connection was replaced -> it gets an end marker.
+      expect(deltas.where((d) => d.bytes.isEmpty && d.isLastInStream && d.streamId == firstStream), hasLength(1));
+      final audio = deltas.where((d) => d.bytes.isNotEmpty).toList();
+      expect(audio, hasLength(2));
+      expect(audio[1].sequenceNumber, greaterThan(audio[0].sequenceNumber));
+      await sub.cancel();
+    });
+
+    test('non-final tokens are provisional and replaced, final tokens appended once', () async {
+      await service.connect(apiKey: 'k', targetLanguage: 'ru');
+      final updates = <TranscriptUpdate>[];
+      final sub = service.onTranscriptUpdate.listen(updates.add);
+
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Gu', 'translation_status': 'original', 'is_final': false},
+        ],
+      });
+      sttChannel.serverSend({
+        'tokens': [
+          {'text': 'Guten', 'translation_status': 'original', 'is_final': true},
+          {'text': ' Mor', 'translation_status': 'original', 'is_final': false},
+        ],
+      });
+      await pump();
+
+      final source = updates.where((u) => u.isSource).toList();
+      expect(source[0].finalText, '');
+      expect(source[0].provisionalText, 'Gu');
+      expect(source[1].finalText, 'Guten');
+      expect(source[1].provisionalText, ' Mor');
+      await sub.cancel();
+    });
+
+    test('binary TTS frames without stream_id are dropped', () async {
+      await service.connect(apiKey: 'k', targetLanguage: 'ru');
+      final deltas = <AudioDelta>[];
+      final sub = service.onAudioDelta.listen(deltas.add);
+      ttsChannel.serverSend(Uint8List.fromList([1, 2, 3, 4]));
+      await pump();
+      expect(deltas, isEmpty);
+      await sub.cancel();
+    });
+
+    test('STT config carries language hints and glossary context', () async {
+      await service.connect(
+        apiKey: 'k',
+        targetLanguage: 'ru',
+        sourceLanguage: 'de',
+        glossary: Glossary.parse('Aaron\nAnbetung = поклонение'),
+      );
+      final config = sttChannel.jsonSent.first;
+      expect(config['language_hints'], ['de']);
+      expect(config['context']['terms'], ['Aaron', 'Anbetung']);
+      expect(config['context']['translation_terms'], [
+        {'source': 'Anbetung', 'target': 'поклонение'},
+      ]);
     });
   });
 }

@@ -1,32 +1,41 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import '../../core/audio/adaptive_tts_buffer.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/audio/onboard_tts_service.dart';
+import '../../core/audio/playout_scheduler.dart';
+import '../../core/audio/wav_file_writer.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/android_platform.dart';
 import '../../core/network/soniox_realtime_translation_service.dart';
 import '../../core/storage/settings_repository.dart';
+import '../../core/translation/glossary.dart';
+import 'transcript_model.dart';
 
 class TranslationProvider extends ChangeNotifier {
   final SettingsRepository settingsRepository;
   final SonioxRealtimeTranslationService translationService;
   final AudioService audioService;
   final OnboardTtsService onboardTtsService;
-  final AdaptiveTtsBuffer adaptiveTtsBuffer;
+  final PlayoutScheduler playoutScheduler;
 
   StreamSubscription? _audioRecordSubscription;
+  WavFileWriter? _micRecorder;
   StreamSubscription? _audioPlaybackSubscription;
   StreamSubscription? _transcriptSubscription;
-  StreamSubscription? _sourceTranscriptSubscription;
+  StreamSubscription? _transcriptUpdateSubscription;
   StreamSubscription? _networkStateSubscription;
   StreamSubscription? _audioLevelSubscription;
   StreamSubscription? _bufferStatusSubscription;
+  DateTime _lastStatusNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool _isTranslating = false;
   String _statusMessage = 'Inaktiv';
-  String _targetTranscript = '';
-  String _sourceTranscript = '';
+  final TranscriptModel _targetTranscript = TranscriptModel();
+  final TranscriptModel _sourceTranscript = TranscriptModel();
   double _audioLevel = 0.0;
   bool _enableSourceTranscription = false;
   String _ttsEngine = 'soniox';
@@ -39,40 +48,40 @@ class TranslationProvider extends ChangeNotifier {
 
   bool get isTranslating => _isTranslating;
   String get statusMessage => _statusMessage;
-  String get targetTranscript => _targetTranscript;
-  String get sourceTranscript => _sourceTranscript;
+  String get targetTranscript => _targetTranscript.text;
+  String get sourceTranscript => _sourceTranscript.text;
   double get audioLevel => _audioLevel;
   bool get enableSourceTranscription => _enableSourceTranscription;
   TranslationConnectionState get connectionState => _connectionState;
 
   double get phoneBufferSeconds =>
-      adaptiveTtsBuffer.currentBufferDurationSeconds +
-      audioService.queuedAudioDurationSeconds;
+      playoutScheduler.backlogSeconds;
   double get audioInFlightSeconds => phoneBufferSeconds;
-  double get targetDelaySeconds => adaptiveTtsBuffer.targetDelaySeconds;
-  double get currentPlaybackSpeed => adaptiveTtsBuffer.currentPlaybackSpeed;
-  int get ttsOutOfOrderEvents => adaptiveTtsBuffer.outOfOrderEvents;
-  bool get hasRecentOutOfOrderEvent => adaptiveTtsBuffer.hasRecentOutOfOrderEvent;
-  double get ttsLatencySeconds => adaptiveTtsBuffer.ttsLatencySeconds;
-  double get lastLateFragmentDelaySeconds => adaptiveTtsBuffer.lastLateFragmentDelaySeconds;
+  double get targetDelaySeconds => playoutScheduler.targetDelaySeconds;
+  double get currentPlaybackSpeed => playoutScheduler.currentPlaybackSpeed;
+  int get ttsOutOfOrderEvents => playoutScheduler.outOfOrderEvents;
+  bool get hasRecentOutOfOrderEvent => playoutScheduler.hasRecentOutOfOrderEvent;
+  double get ttsLatencySeconds => playoutScheduler.ttsLatencySeconds;
+  double get lastLateFragmentDelaySeconds => playoutScheduler.lastLateFragmentDelaySeconds;
   double get translationLatencySeconds => translationService.translationLatencySeconds;
-  bool get isPreRolling => adaptiveTtsBuffer.isPreRolling;
+  bool get isPreRolling => playoutScheduler.isPreRolling;
 
   TranslationProvider({
     required this.settingsRepository,
     required this.translationService,
     required this.audioService,
     OnboardTtsService? onboardTtsService,
-    AdaptiveTtsBuffer? adaptiveTtsBuffer,
+    PlayoutScheduler? playoutScheduler,
   })  : onboardTtsService = onboardTtsService ?? OnboardTtsService(),
-        adaptiveTtsBuffer = adaptiveTtsBuffer ?? AdaptiveTtsBuffer() {
+        playoutScheduler = playoutScheduler ?? PlayoutScheduler(output: audioService.createPcmOutput()) {
+    audioService.isPlaybackActive = () => this.playoutScheduler.backlogSeconds > 0;
     _initListeners();
     _loadSettings();
   }
 
   void _loadSettings() {
     settingsRepository.getOutputGain().then((gain) {
-      audioService.outputGain = gain;
+      playoutScheduler.outputGain = gain;
     });
     settingsRepository.getEnableSourceTranscription().then((enabled) {
       _enableSourceTranscription = enabled;
@@ -119,47 +128,50 @@ class TranslationProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    _bufferStatusSubscription = adaptiveTtsBuffer.onStatusChanged.listen((_) {
-      if (adaptiveTtsBuffer.hasAudioToPlay) {
-        _pumpAudioFromBuffer();
+    // Playout status changes up to 20x/s; throttle UI rebuilds.
+    _bufferStatusSubscription = playoutScheduler.onStatusChanged.listen((_) {
+      final now = DateTime.now();
+      if (now.difference(_lastStatusNotify).inMilliseconds >= 200) {
+        _lastStatusNotify = now;
+        notifyListeners();
       }
-      notifyListeners();
     });
 
     _audioPlaybackSubscription =
         translationService.onAudioDelta.listen((delta) {
       if (_ttsEngine == 'soniox') {
         if (delta.measuredLatencySeconds != null && delta.measuredLatencySeconds! > 0) {
-          adaptiveTtsBuffer.reportSectionLatency(delta.measuredLatencySeconds!);
+          playoutScheduler.reportSectionLatency(delta.measuredLatencySeconds!);
         }
-        adaptiveTtsBuffer.addChunk(
+        playoutScheduler.addChunk(
           SequencedAudioDelta(
             bytes: delta.bytes,
             sampleRate: delta.sampleRate,
             sequenceNumber: delta.sequenceNumber,
             streamId: delta.streamId,
             isLastInStream: delta.isLastInStream,
+            boundary: delta.boundary,
           ),
         );
-        _pumpAudioFromBuffer();
       }
     });
 
+    // Final translated text only (drives onboard TTS).
     _transcriptSubscription =
         translationService.onTranscriptDelta.listen((textDelta) {
-      _targetTranscript += textDelta;
-      AppLogger.debug('Target transcript updated (+${textDelta.length} chars): "$textDelta"', tag: 'TranslationProvider');
       if (_ttsEngine == 'onboard') {
         _sentenceBuffer += textDelta;
         _restartSentenceInactivityTimer();
         _processSentenceBuffer(force: false);
       }
-      notifyListeners();
     });
 
-    _sourceTranscriptSubscription =
-        translationService.onSourceTranscriptDelta.listen((textDelta) {
-      _sourceTranscript += textDelta;
+    // UI transcripts: final text + provisional tail (no duplication of non-final tokens).
+    _transcriptUpdateSubscription =
+        translationService.onTranscriptUpdate.listen((update) {
+      final model = update.isSource ? _sourceTranscript : _targetTranscript;
+      if (update.finalText.isEmpty && update.provisionalText == model.provisionalText) return;
+      model.apply(finalText: update.finalText, provisionalText: update.provisionalText);
       notifyListeners();
     });
 
@@ -167,12 +179,6 @@ class TranslationProvider extends ChangeNotifier {
       _audioLevel = level;
       notifyListeners();
     });
-  }
-
-  Future<void> _pumpAudioFromBuffer() async {
-    if (adaptiveTtsBuffer.hasAudioToPlay) {
-      await audioService.pumpFromBuffer(adaptiveTtsBuffer);
-    }
   }
 
   void _restartSentenceInactivityTimer() {
@@ -276,6 +282,9 @@ class TranslationProvider extends ChangeNotifier {
               targetLanguage: targetLanguage,
               voice: voice,
               enableSourceTranscription: _enableSourceTranscription,
+              newSession: false,
+              sourceLanguage: await _sourceLanguageHint(),
+              glossary: Glossary.parse(await settingsRepository.getGlossary()),
             );
             _reconnectAttempts = 0;
             return;
@@ -307,11 +316,17 @@ class TranslationProvider extends ChangeNotifier {
     _ttsEngine = await settingsRepository.getTtsEngine();
     _enableSourceTranscription =
         await settingsRepository.getEnableSourceTranscription();
-    audioService.outputGain = await settingsRepository.getOutputGain();
-    audioService.voiceProcessing = await settingsRepository.getVoiceProcessing();
+    playoutScheduler.outputGain = await settingsRepository.getOutputGain();
+    final voiceProcessingMode = await settingsRepository.getVoiceProcessingMode();
+    final headphones = await AndroidPlatform.isHeadphoneConnected();
+    audioService.voiceProcessing = switch (voiceProcessingMode) {
+      'on' => true,
+      'off' => false,
+      _ => !headphones,
+    };
 
     AppLogger.info(
-      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${audioService.outputGain}x, voiceProcessing=${audioService.voiceProcessing})',
+      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${playoutScheduler.outputGain}x, voiceProcessing=${audioService.voiceProcessing} (mode $voiceProcessingMode, headphones=$headphones))',
       tag: 'TranslationProvider',
     );
 
@@ -319,10 +334,10 @@ class TranslationProvider extends ChangeNotifier {
       await onboardTtsService.setLanguage(targetLanguage);
     }
 
-    _targetTranscript = '';
-    _sourceTranscript = '';
+    _targetTranscript.clear();
+    _sourceTranscript.clear();
     _sentenceBuffer = '';
-    adaptiveTtsBuffer.reset();
+    playoutScheduler.reset();
     _isTranslating = true;
     _statusMessage = 'Initialisiere...';
     notifyListeners();
@@ -330,6 +345,7 @@ class TranslationProvider extends ChangeNotifier {
     try {
       await _enableWakeLock(true);
       await audioService.prepareAudioForPlayback();
+      await playoutScheduler.start();
 
       // Start network connection
       await translationService.connect(
@@ -337,16 +353,27 @@ class TranslationProvider extends ChangeNotifier {
         targetLanguage: targetLanguage,
         voice: voice,
         enableSourceTranscription: _enableSourceTranscription,
+        sourceLanguage: await _sourceLanguageHint(),
+        glossary: Glossary.parse(await settingsRepository.getGlossary()),
       );
 
       // Start audio recording and stream chunks to network continuously.
+      // The foreground service keeps the mic alive with the screen off / app in background.
+      if (AndroidPlatform.isAndroid) {
+        // Android 13+: the service notification needs this permission (service runs either way).
+        await Permission.notification.request();
+      }
+      await AndroidPlatform.startForegroundService();
       await audioService.startRecording();
+      _micRecorder = await _openMicRecorderIfEnabled();
       _audioRecordSubscription = audioService.audioStream.listen((chunk) {
         translationService.sendAudioChunk(chunk);
+        _micRecorder?.add(chunk);
       });
     } catch (e) {
       _statusMessage = 'Fehler beim Starten: ${e.toString()}';
       _isTranslating = false;
+      await AndroidPlatform.stopForegroundService();
       await _enableWakeLock(false);
       notifyListeners();
     }
@@ -360,15 +387,18 @@ class TranslationProvider extends ChangeNotifier {
     _sentenceInactivityTimer?.cancel();
     _sentenceInactivityTimer = null;
 
-    adaptiveTtsBuffer.flushPreRoll();
-    await _pumpAudioFromBuffer();
+    playoutScheduler.flushPreRoll();
 
     await _audioRecordSubscription?.cancel();
     _audioRecordSubscription = null;
+    final recorder = _micRecorder;
+    _micRecorder = null;
+    await recorder?.close();
 
     await audioService.stopRecording();
+    await AndroidPlatform.stopForegroundService();
     await translationService.gracefulStop();
-    await audioService.stopPlayback();
+    await playoutScheduler.stop();
 
     if (_ttsEngine == 'onboard') {
       _processSentenceBuffer(force: true);
@@ -394,9 +424,33 @@ class TranslationProvider extends ChangeNotifier {
     }
   }
 
+  /// Opens a WAV writer for the mic audio sent to STT (debug setting); keeps only the latest file.
+  Future<WavFileWriter?> _openMicRecorderIfEnabled() async {
+    if (kIsWeb || !await settingsRepository.getMicRecording()) return null;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      await for (final entity in dir.list()) {
+        if (entity is File && entity.uri.pathSegments.last.startsWith(WavFileWriter.filePrefix)) {
+          await entity.delete();
+        }
+      }
+      final ts = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+      return await WavFileWriter.open('${dir.path}/${WavFileWriter.filePrefix}$ts.wav',
+          sampleRate: AudioService.inputSampleRate);
+    } catch (e) {
+      AppLogger.warning('Mic recording could not be started: $e', tag: 'TranslationProvider');
+      return null;
+    }
+  }
+
+  Future<String?> _sourceLanguageHint() async {
+    final code = await settingsRepository.getSourceLanguage();
+    return code.isEmpty ? null : code;
+  }
+
   void clearTranscript() {
-    _targetTranscript = '';
-    _sourceTranscript = '';
+    _targetTranscript.clear();
+    _sourceTranscript.clear();
     _sentenceInactivityTimer?.cancel();
     _sentenceInactivityTimer = null;
     _sentenceBuffer = '';
@@ -410,11 +464,11 @@ class TranslationProvider extends ChangeNotifier {
     _audioRecordSubscription?.cancel();
     _audioPlaybackSubscription?.cancel();
     _transcriptSubscription?.cancel();
-    _sourceTranscriptSubscription?.cancel();
+    _transcriptUpdateSubscription?.cancel();
     _networkStateSubscription?.cancel();
     _audioLevelSubscription?.cancel();
     _bufferStatusSubscription?.cancel();
-    adaptiveTtsBuffer.dispose();
+    playoutScheduler.dispose();
     onboardTtsService.stop();
     _enableWakeLock(false);
     super.dispose();

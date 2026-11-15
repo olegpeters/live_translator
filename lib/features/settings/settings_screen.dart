@@ -20,7 +20,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedTtsEngine = 'soniox';
   double _outputGain = SettingsRepository.defaultOutputGain;
   bool _enableSourceTranscription = false;
-  bool _voiceProcessing = true;
+  String _voiceProcessingMode = 'auto';
+  bool _micRecording = false;
+  String _sourceLanguage = 'de';
+  final _glossaryController = TextEditingController();
   bool _isLoading = true;
 
   final List<Map<String, String>> _languages = const [
@@ -59,7 +62,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final gain = await widget.settingsRepository.getOutputGain();
     final enableSourceTranscription =
         await widget.settingsRepository.getEnableSourceTranscription();
-    final voiceProcessing = await widget.settingsRepository.getVoiceProcessing();
+    final voiceProcessingMode = await widget.settingsRepository.getVoiceProcessingMode();
+    final micRecording = await widget.settingsRepository.getMicRecording();
+    final sourceLanguage = await widget.settingsRepository.getSourceLanguage();
+    final glossary = await widget.settingsRepository.getGlossary();
 
     setState(() {
       if (apiKey != null) {
@@ -70,7 +76,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _selectedTtsEngine = ttsEngine;
       _outputGain = gain;
       _enableSourceTranscription = enableSourceTranscription;
-      _voiceProcessing = voiceProcessing;
+      _voiceProcessingMode = voiceProcessingMode;
+      _micRecording = micRecording;
+      _sourceLanguage = sourceLanguage;
+      _glossaryController.text = glossary;
       _isLoading = false;
     });
   }
@@ -81,7 +90,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setVoice(_selectedVoice);
     await widget.settingsRepository.setTtsEngine(_selectedTtsEngine);
     await widget.settingsRepository.setOutputGain(_outputGain);
-    await widget.settingsRepository.setVoiceProcessing(_voiceProcessing);
+    await widget.settingsRepository.setVoiceProcessingMode(_voiceProcessingMode);
+    await widget.settingsRepository.setMicRecording(_micRecording);
+    await widget.settingsRepository.setSourceLanguage(_sourceLanguage);
+    await widget.settingsRepository.setGlossary(_glossaryController.text);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
 
@@ -96,6 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _glossaryController.dispose();
     super.dispose();
   }
 
@@ -144,6 +157,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _sourceLanguage,
+                    decoration: const InputDecoration(
+                      labelText: 'Gesprochene Sprache (Quelle)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'de', child: Text('Deutsch (de)')),
+                      DropdownMenuItem(value: 'en', child: Text('Englisch (en)')),
+                      DropdownMenuItem(value: '', child: Text('Automatisch erkennen')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _sourceLanguage = val);
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
@@ -208,6 +237,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                   ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _glossaryController,
+                    minLines: 3,
+                    maxLines: 8,
+                    decoration: const InputDecoration(
+                      labelText: 'Glossar (Namen, Fachbegriffe)',
+                      alignLabelWithHint: true,
+                      hintText: 'Ein Eintrag pro Zeile, z. B.\nAaron\nAnbetung = поклонение',
+                      helperText: 'Begriff = Erkennungshilfe; "Quelle = Ziel" legt die Übersetzung fest.',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   const Text(
                     'Ausgabelautstärke / Audio-Verstärkung',
@@ -244,16 +286,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Sprachverarbeitung Mikrofon'),
-                    subtitle: const Text(
-                      'Echo- & Rauschunterdrückung, automatische Verstärkung. '
-                      'Bei Lautsprecher-Ausgabe einschalten; mit Kopfhörern ausschalten, '
-                      'da sonst Sprache während der Wiedergabe unterdrückt werden kann.',
+                  DropdownButtonFormField<String>(
+                    initialValue: _voiceProcessingMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Sprachverarbeitung Mikrofon',
+                      helperText: 'Echo-/Rauschunterdrückung. Mit Kopfhörern aus (sonst wird Sprache '
+                          'während der Wiedergabe unterdrückt), mit Lautsprecher an.',
+                      helperMaxLines: 3,
+                      border: OutlineInputBorder(),
                     ),
-                    value: _voiceProcessing,
-                    onChanged: (val) => setState(() => _voiceProcessing = val),
+                    items: const [
+                      DropdownMenuItem(value: 'auto', child: Text('Automatisch (nach Kopfhörer)')),
+                      DropdownMenuItem(value: 'on', child: Text('Immer an')),
+                      DropdownMenuItem(value: 'off', child: Text('Immer aus')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _voiceProcessingMode = val);
+                    },
                   ),
                   const SizedBox(height: 24),
                   const Text(
@@ -272,6 +321,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _enableSourceTranscription = val;
                       });
                     },
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  SwitchListTile(
+                    title: const Text('Mikrofon-Mitschnitt'),
+                    subtitle: const Text(
+                      'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
+                      'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
+                    ),
+                    value: _micRecording,
+                    onChanged: (val) => setState(() => _micRecording = val),
                     contentPadding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 12),

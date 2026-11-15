@@ -11,6 +11,10 @@ class SettingsRepository {
       'enable_source_transcription';
   static const String _keyTtsEngine = 'tts_engine';
   static const String _keyVoiceProcessing = 'voice_processing';
+  static const String _keyVoiceProcessingMode = 'voice_processing_mode';
+  static const String _keyMicRecording = 'debug_mic_recording';
+  static const String _keySourceLanguage = 'source_language';
+  static const String _keyGlossary = 'glossary';
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -81,16 +85,55 @@ class SettingsRepository {
     await _prefs?.setBool(_keyEnableSourceTranscription, enabled);
   }
 
-  /// Android/OS voice processing (echo cancel, noise suppression, auto gain) on mic input.
-  /// Useful with loudspeaker output; with headphones it can suppress speech during playback.
-  Future<bool> getVoiceProcessing() async {
+  /// Android/OS voice processing (echo cancel, noise suppression, auto gain) on mic input:
+  /// 'auto' (off with headphones, on with loudspeaker), 'on' or 'off'.
+  /// Needed against echo in loudspeaker mode; with headphones it can suppress speech during playback.
+  Future<String> getVoiceProcessingMode() async {
     await init();
-    return _prefs?.getBool(_keyVoiceProcessing) ?? false;
+    final mode = _prefs?.getString(_keyVoiceProcessingMode);
+    if (mode != null) return mode;
+    // Migrate the former on/off switch if it was set explicitly.
+    final legacy = _prefs?.getBool(_keyVoiceProcessing);
+    if (legacy != null) return legacy ? 'on' : 'off';
+    return 'auto';
   }
 
-  Future<void> setVoiceProcessing(bool enabled) async {
+  Future<void> setVoiceProcessingMode(String mode) async {
     await init();
-    await _prefs?.setBool(_keyVoiceProcessing, enabled);
+    await _prefs?.setString(_keyVoiceProcessingMode, mode);
+  }
+
+  /// Debug: record the audio sent to STT as WAV (to analyze lost speech).
+  Future<bool> getMicRecording() async {
+    await init();
+    return _prefs?.getBool(_keyMicRecording) ?? false;
+  }
+
+  Future<void> setMicRecording(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keyMicRecording, enabled);
+  }
+
+  /// Expected spoken language (Soniox `language_hints`); empty = automatic detection.
+  Future<String> getSourceLanguage() async {
+    await init();
+    return _prefs?.getString(_keySourceLanguage) ?? 'de';
+  }
+
+  Future<void> setSourceLanguage(String code) async {
+    await init();
+    await _prefs?.setString(_keySourceLanguage, code);
+  }
+
+  /// Glossary lines (see `Glossary.parse`).
+  Future<String> getGlossary() async {
+    await init();
+    return _prefs?.getString(_keyGlossary) ?? '';
+  }
+
+  Future<void> setGlossary(String glossary) async {
+    await init();
+    await _prefs?.setString(_keyGlossary, glossary);
   }
 
   Future<String> getTtsEngine() async {

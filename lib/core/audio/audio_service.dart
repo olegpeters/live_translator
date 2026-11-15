@@ -5,125 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import '../logging/app_logger.dart';
-import 'adaptive_tts_buffer.dart';
+import 'audioplayers_pcm_output.dart';
+import 'pcm_stream_player.dart';
 
-/// Converts raw 16-bit PCM mono bytes into a valid WAV format with a 44-byte RIFF header.
-Uint8List pcmToWav(
-  Uint8List pcmBytes, {
-  int sampleRate = 24000,
-  int numChannels = 1,
-  int bitsPerSample = 16,
-}) {
-  final int byteRate = sampleRate * numChannels * (bitsPerSample ~/ 8);
-  final int blockAlign = numChannels * (bitsPerSample ~/ 8);
-  final int dataSize = pcmBytes.length;
-  final int chunkSize = 36 + dataSize;
-
-  final ByteData header = ByteData(44);
-  // "RIFF"
-  header.setUint8(0, 0x52); // 'R'
-  header.setUint8(1, 0x49); // 'I'
-  header.setUint8(2, 0x46); // 'F'
-  header.setUint8(3, 0x46); // 'F'
-  // ChunkSize (little-endian)
-  header.setUint32(4, chunkSize, Endian.little);
-  // "WAVE"
-  header.setUint8(8, 0x57); // 'W'
-  header.setUint8(9, 0x41); // 'A'
-  header.setUint8(10, 0x56); // 'V'
-  header.setUint8(11, 0x45); // 'E'
-  // "fmt "
-  header.setUint8(12, 0x66); // 'f'
-  header.setUint8(13, 0x6D); // 'm'
-  header.setUint8(14, 0x74); // 't'
-  header.setUint8(15, 0x20); // ' '
-  // Subchunk1Size (16 for PCM)
-  header.setUint32(16, 16, Endian.little);
-  // AudioFormat (1 = PCM)
-  header.setUint16(20, 1, Endian.little);
-  // NumChannels
-  header.setUint16(22, numChannels, Endian.little);
-  // SampleRate
-  header.setUint32(24, sampleRate, Endian.little);
-  // ByteRate
-  header.setUint32(28, byteRate, Endian.little);
-  // BlockAlign
-  header.setUint16(32, blockAlign, Endian.little);
-  // BitsPerSample
-  header.setUint16(34, bitsPerSample, Endian.little);
-  // "data"
-  header.setUint8(36, 0x64); // 'd'
-  header.setUint8(37, 0x61); // 'a'
-  header.setUint8(38, 0x74); // 't'
-  header.setUint8(39, 0x61); // 'a'
-  // Subchunk2Size
-  header.setUint32(40, dataSize, Endian.little);
-
-  final Uint8List wavBytes = Uint8List(44 + dataSize);
-  wavBytes.setRange(0, 44, header.buffer.asUint8List());
-  wavBytes.setRange(44, 44 + dataSize, pcmBytes);
-  return wavBytes;
-}
-
-/// Amplifies 16-bit PCM mono bytes by a factor of [gain].
-/// Values are clamped between -32768 and 32767 to prevent digital clipping overflow.
-Uint8List amplifyPcm16(Uint8List pcmBytes, double gain) {
-  if (gain == 1.0 || pcmBytes.isEmpty) return pcmBytes;
-
-  final ByteData byteData = ByteData.sublistView(pcmBytes);
-  final Uint8List amplifiedBytes = Uint8List(pcmBytes.length);
-  final ByteData outData = ByteData.sublistView(amplifiedBytes);
-
-  final int sampleCount = pcmBytes.length ~/ 2;
-  for (int i = 0; i < sampleCount; i++) {
-    final int sample = byteData.getInt16(i * 2, Endian.little);
-    final int amplified = (sample * gain).round().clamp(-32768, 32767);
-    outData.setInt16(i * 2, amplified, Endian.little);
-  }
-
-  return amplifiedBytes;
-}
-
-/// Applies a smooth linear fade-in and/or fade-out to 16-bit PCM mono bytes.
-/// Micro fade-in/out (default 32 samples = ~1.3ms at 24kHz) is applied only at the
-/// start/end of a stream to prevent DC-offset step pops, while keeping inner
-/// batch boundaries bit-exact continuous to prevent stuttering/volume dips.
-Uint8List applyPcm16EdgeSmoothing(
-  Uint8List pcmBytes, {
-  bool fadeIn = false,
-  bool fadeOut = false,
-  int fadeSamples = 32,
-}) {
-  if ((!fadeIn && !fadeOut) || pcmBytes.length < 4) return pcmBytes;
-
-  final int totalSamples = pcmBytes.length ~/ 2;
-  final int actualFadeSamples = min(fadeSamples, totalSamples ~/ 2);
-  if (actualFadeSamples <= 0) return pcmBytes;
-
-  final Uint8List smoothedBytes = Uint8List.fromList(pcmBytes);
-  final ByteData byteData = ByteData.sublistView(smoothedBytes);
-
-  if (fadeIn) {
-    for (int i = 0; i < actualFadeSamples; i++) {
-      final double factor = i / actualFadeSamples;
-      final int sample = byteData.getInt16(i * 2, Endian.little);
-      final int smoothed = (sample * factor).round().clamp(-32768, 32767);
-      byteData.setInt16(i * 2, smoothed, Endian.little);
-    }
-  }
-
-  if (fadeOut) {
-    for (int i = 0; i < actualFadeSamples; i++) {
-      final int sampleIndex = totalSamples - actualFadeSamples + i;
-      final double factor = (actualFadeSamples - 1 - i) / actualFadeSamples;
-      final int sample = byteData.getInt16(sampleIndex * 2, Endian.little);
-      final int smoothed = (sample * factor).round().clamp(-32768, 32767);
-      byteData.setInt16(sampleIndex * 2, smoothed, Endian.little);
-    }
-  }
-
-  return smoothedBytes;
-}
+export 'pcm_utils.dart';
 
 class _MicStats {
   double sumSquares = 0;
@@ -150,59 +35,22 @@ class _MicStats {
   }
 }
 
-class _PcmChunk {
-  final Uint8List bytes;
-  final int sampleRate;
-  final String? streamId;
-
-  const _PcmChunk(this.bytes, this.sampleRate, [this.streamId]);
-}
-
 class AudioService {
   final AudioRecorder _recorder;
   final AudioPlayer _audioPlayer;
-
-  /// Digital gain multiplier for output audio playback (e.g. 1.0 = 100%, 2.0 = 200%).
-  double outputGain = 2.0;
 
   /// Enables OS voice processing (echo cancel, noise suppression, auto gain) on mic input.
   /// Applied when recording starts.
   bool voiceProcessing = true;
 
-  /// Playback speed rate multiplier (1.0 = normal, 2.0 = 2x faster).
-  double currentPlaybackRate = 1.0;
-
-  Future<void> setPlaybackRate(double rate) async {
-    final clampedRate = rate.clamp(1.0, 2.0);
-    if ((currentPlaybackRate - clampedRate).abs() > 0.01) {
-      currentPlaybackRate = clampedRate;
-      try {
-        await _audioPlayer.setPlaybackRate(currentPlaybackRate);
-      } catch (e) {
-        AppLogger.warning('Failed to set playback rate: $e', tag: 'AudioService');
-      }
-    }
-  }
+  /// Reports whether translated audio is currently being played (for mic diagnostics).
+  bool Function()? isPlaybackActive;
 
   StreamSubscription<Uint8List>? _recordSubscription;
   final _audioStreamController = StreamController<Uint8List>.broadcast();
   final _audioLevelController = StreamController<double>.broadcast();
 
-  List<_PcmChunk>? _pcmChunkQueue;
-  List<_PcmChunk> get _queue => _pcmChunkQueue ??= <_PcmChunk>[];
-  bool? _isPlaying;
-  bool get _playing => _isPlaying ?? false;
-  set _playing(bool value) => _isPlaying = value;
-  Completer<void>? _currentPlaybackCompleter;
   bool? _isRecording;
-  bool _flushRequested = false;
-
-  /// Maximum bytes to batch in a single play() call (~2.0s at 24kHz PCM16 mono).
-  ///
-  /// Every play() call reloads the player source and leaves a small audible gap, so batches
-  /// must not be too small. Larger batches don't hurt reordering: sequence numbers are assigned
-  /// on receipt (in-order per stream) and stream transitions are held by [AdaptiveTtsBuffer].
-  static const int maxBatchBytes = 96000;
 
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
@@ -242,10 +90,13 @@ class AudioService {
   Stream<double> get audioLevelStream => _audioLevelController.stream;
   bool get isRecording => _isRecording ?? false;
 
-  double get queuedAudioDurationSeconds {
-    final q = _pcmChunkQueue;
-    if (q == null || q.isEmpty) return 0.0;
-    return q.fold(0.0, (sum, c) => sum + (c.bytes.length / (c.sampleRate * 2.0)));
+  /// Creates the output for translated speech: the gapless native player on Android,
+  /// an audioplayers-based fallback elsewhere.
+  PcmOutput createPcmOutput() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidPcmStreamPlayer();
+    }
+    return AudioPlayersPcmOutput(player: _audioPlayer);
   }
 
   Future<bool> checkAndRequestPermissions() async {
@@ -377,7 +228,7 @@ class AudioService {
   void _collectMicDiagnostics(double rms, int samples) {
     final now = DateTime.now();
     _micDiagWindowStart ??= now;
-    _micDiag[_playing]!.add(rms, samples);
+    _micDiag[isPlaybackActive?.call() ?? false]!.add(rms, samples);
 
     if (now.difference(_micDiagWindowStart!).inMilliseconds < 2000) return;
     String fmt(_MicStats s) => s.samples == 0
@@ -393,166 +244,6 @@ class AudioService {
     _micDiagWindowStart = now;
   }
 
-  Future<void> pumpFromBuffer(AdaptiveTtsBuffer buffer) async {
-    if (_playing) return;
-    _playing = true;
-    _runPlaybackLoop(buffer);
-  }
-
-  void _replenishQueueFromBuffer(AdaptiveTtsBuffer buffer) {
-    int currentBytes = _queue.fold(0, (sum, c) => sum + c.bytes.length);
-    double requestedSpeed = buffer.currentPlaybackSpeed;
-
-    while (currentBytes < maxBatchBytes && buffer.hasAudioToPlay) {
-      final chunk = buffer.popNextChunk();
-      if (chunk == null) break;
-      if (buffer.currentPlaybackSpeed > requestedSpeed) {
-        requestedSpeed = buffer.currentPlaybackSpeed;
-      }
-      final processedBytes = outputGain != 1.0
-          ? amplifyPcm16(chunk.bytes, outputGain)
-          : chunk.bytes;
-      _queue.add(_PcmChunk(processedBytes, chunk.sampleRate, chunk.streamId));
-      currentBytes += processedBytes.length;
-    }
-
-    setPlaybackRate(requestedSpeed);
-  }
-
-  Future<void> playAudioDelta(Uint8List pcmBytes,
-      {int sampleRate = inputSampleRate}) async {
-    if (pcmBytes.isEmpty) {
-      _flushRequested = true;
-      _startPlaybackLoop();
-      return;
-    }
-    final processedBytes = outputGain != 1.0
-        ? amplifyPcm16(pcmBytes, outputGain)
-        : pcmBytes;
-    _queue.add(_PcmChunk(processedBytes, sampleRate));
-    _startPlaybackLoop();
-  }
-
-  void _startPlaybackLoop([AdaptiveTtsBuffer? buffer]) {
-    if (_playing) return;
-    _playing = true;
-    _runPlaybackLoop(buffer);
-  }
-
-  Future<void> _runPlaybackLoop([AdaptiveTtsBuffer? buffer]) async {
-    bool isStreamStart = true;
-
-    while (_playing) {
-      if (buffer != null) {
-        _replenishQueueFromBuffer(buffer);
-      }
-
-      if (_queue.isEmpty) {
-        break;
-      }
-
-      final int sampleRate = _queue.first.sampleRate;
-      final String? currentStreamId = _queue.first.streamId;
-
-      _flushRequested = false;
-
-      // Batch consecutive chunks that share the same sample rate and stream ID up to maxBatchBytes.
-      final chunks = <Uint8List>[];
-      int batchedBytes = 0;
-      while (_queue.isNotEmpty &&
-          _queue.first.sampleRate == sampleRate &&
-          _queue.first.streamId == currentStreamId &&
-          batchedBytes < maxBatchBytes) {
-        final chunk = _queue.removeAt(0);
-        chunks.add(chunk.bytes);
-        batchedBytes += chunk.bytes.length;
-      }
-
-      final int totalLength = chunks.fold(0, (sum, c) => sum + c.length);
-      if (totalLength == 0) continue;
-
-      final Uint8List rawPcm = Uint8List(totalLength);
-      int offset = 0;
-      for (final chunk in chunks) {
-        rawPcm.setRange(offset, offset + chunk.length, chunk);
-        offset += chunk.length;
-      }
-
-      if (buffer != null) {
-        _replenishQueueFromBuffer(buffer);
-      }
-
-      final bool hasMoreAudio = _queue.isNotEmpty || (buffer != null && buffer.hasAudioToPlay);
-      final bool shouldFadeIn = isStreamStart;
-      final bool shouldFadeOut = !hasMoreAudio;
-      isStreamStart = false;
-
-      // Smooth micro fade-in/out only at outer stream boundaries (start/end of speech)
-      final Uint8List pcmBytes = applyPcm16EdgeSmoothing(
-        rawPcm,
-        fadeIn: shouldFadeIn,
-        fadeOut: shouldFadeOut,
-        fadeSamples: 32,
-      );
-
-      final wavBytes = pcmToWav(pcmBytes, sampleRate: sampleRate);
-      final completer = Completer<void>();
-      _currentPlaybackCompleter = completer;
-
-      final durationMs = (pcmBytes.length * 1000 / (sampleRate * 2 * currentPlaybackRate)).ceil();
-      AppLogger.debug(
-        'AudioService starting playback batch ($batchedBytes bytes, ${chunks.length} chunks, ~$durationMs ms, speed ${currentPlaybackRate.toStringAsFixed(2)}x)',
-        tag: 'AudioService',
-      );
-
-      StreamSubscription? completeSub;
-      try {
-        completeSub = _audioPlayer.onPlayerComplete.listen((_) {
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        });
-
-        await _audioPlayer.play(BytesSource(wavBytes, mimeType: 'audio/wav'));
-
-        await completer.future.timeout(
-          Duration(milliseconds: durationMs + 300),
-          onTimeout: () {
-            AppLogger.warning(
-              'Playback timeout reached after ${durationMs + 300} ms; completing batch completer',
-              tag: 'AudioService',
-            );
-            if (!completer.isCompleted) {
-              completer.complete();
-            }
-          },
-        );
-      } catch (e, st) {
-        AppLogger.error('Playback error: $e', tag: 'AudioService', stackTrace: st);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      } finally {
-        await completeSub?.cancel();
-        _currentPlaybackCompleter = null;
-      }
-    }
-
-    _playing = false;
-    _flushRequested = false;
-
-    if (buffer != null && buffer.hasAudioToPlay) {
-      pumpFromBuffer(buffer);
-    } else if (_queue.isNotEmpty) {
-      _startPlaybackLoop();
-    } else if (buffer != null && !buffer.hasQueuedAudio) {
-      // Real underrun: player idle and buffer drained -> rebuild target delay before resuming.
-      // If audio is queued but temporarily held (gap / stream transition), the buffer
-      // emits a status event when the hold expires, which restarts the pump.
-      buffer.rearmPreRoll();
-    }
-  }
-
   Future<void> stopRecording() async {
     if (!isRecording) return;
     await _recordSubscription?.cancel();
@@ -566,22 +257,11 @@ class AudioService {
     }
   }
 
-  Future<void> stopPlayback() async {
-    _playing = false;
-    _flushRequested = false;
-    _queue.clear();
-    if (_currentPlaybackCompleter != null &&
-        !_currentPlaybackCompleter!.isCompleted) {
-      _currentPlaybackCompleter!.complete();
-    }
+  Future<void> dispose() async {
+    await stopRecording();
     try {
       await _audioPlayer.stop();
     } catch (_) {}
-  }
-
-  Future<void> dispose() async {
-    await stopRecording();
-    await stopPlayback();
     _recorder.dispose();
     await _audioPlayer.dispose();
     await _audioStreamController.close();
