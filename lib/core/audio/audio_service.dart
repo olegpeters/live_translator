@@ -55,7 +55,11 @@ class AudioService {
   AudioService({AudioRecorder? recorder, AudioPlayer? audioPlayer})
       : _recorder = recorder ?? AudioRecorder(),
         _audioPlayer = audioPlayer ?? AudioPlayer() {
-    _configureAudioContext();
+    // On Android TTS plays via the native AudioTrack player; audioplayers' global context would
+    // force speakerphone / audio mode on the whole system (and interfere with Bluetooth routing).
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      _configureAudioContext();
+    }
   }
 
   void _configureAudioContext() {
@@ -140,15 +144,24 @@ class AudioService {
       echoCancel: voiceProcessing,
       noiseSuppress: voiceProcessing,
       autoGain: voiceProcessing,
-      androidConfig: const AndroidRecordConfig(
+      androidConfig: AndroidRecordConfig(
         audioSource: AndroidAudioSource.mic,
         audioManagerMode: AudioManagerMode.modeNormal,
-        speakerphone: true,
+        // Only useful as AEC helper in loudspeaker mode; otherwise don't touch routing.
+        speakerphone: voiceProcessing,
+        // Never switch a Bluetooth headset into its call profile (SCO/HFP): that steals the
+        // A2DP link our translation is played on, so the headset mic goes silent (or capture
+        // pauses) whenever TTS plays. The phone mic captures the speaker anyway, in wideband.
+        manageBluetooth: false,
       ),
       audioInterruption: AudioInterruptionMode.none,
+      // If the input device disappears (e.g. a headset reconnects), keep capturing from the
+      // new default input instead of silently pausing the stream.
+      audioRouteChange: AudioRouteChangeMode.follow,
     );
 
     try {
+      await _logInputDevices();
       final stream = await _recorder.startStream(config);
 
       await _recordSubscription?.cancel();
@@ -173,6 +186,17 @@ class AudioService {
       _handleRecordingError();
       rethrow;
     }
+  }
+
+  Future<void> _logInputDevices() async {
+    try {
+      final devices = await _recorder.listInputDevices();
+      AppLogger.info(
+        'Mic input devices: ${devices.map((d) => d.label).join(', ')} '
+        '(Bluetooth SCO not managed; voiceProcessing=$voiceProcessing)',
+        tag: 'AudioService',
+      );
+    } catch (_) {}
   }
 
   void _handleRecordingError() {

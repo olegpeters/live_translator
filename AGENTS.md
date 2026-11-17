@@ -38,4 +38,6 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 
 ## 6. Android
 - `TranslationForegroundService` (type microphone) keeps the mic alive in background / screen off.
+- **Bluetooth:** recording uses `AndroidRecordConfig(manageBluetooth: false)` and `audioRouteChange: follow`. The `record` plugin otherwise switches a BT headset into its call profile (SCO/HFP, `setCommunicationDevice`), which conflicts with A2DP media playback: the headset mic goes silent or capture pauses whenever TTS plays. Input comes from the phone mic, output stays A2DP.
+- Don't apply the `audioplayers` global `AudioContext` on Android (it sets speakerphone / audio mode system-wide); TTS plays via the native AudioTrack there.
 - Mic voice processing (AEC/NS/AGC) mode `auto`: off with headphones (it suppresses speech during playback even without echo), on with loudspeaker (prevents our own TTS echo from being transcribed).
