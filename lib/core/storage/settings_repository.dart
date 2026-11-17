@@ -15,6 +15,10 @@ class SettingsRepository {
   static const String _keyMicRecording = 'debug_mic_recording';
   static const String _keySourceLanguage = 'source_language';
   static const String _keyGlossary = 'glossary';
+  static const String _keyUseGlossaryPreset = 'use_glossary_preset';
+
+  /// Bundled glossary preset (sermon context, Seventh-day Adventist church).
+  static const String glossaryPresetAsset = 'assets/glossary/adventist_sermon.txt';
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -134,6 +138,17 @@ class SettingsRepository {
   Future<void> setGlossary(String glossary) async {
     await init();
     await _prefs?.setString(_keyGlossary, glossary);
+  }
+
+  /// Whether the bundled glossary preset is combined with the free-text glossary.
+  Future<bool> getUseGlossaryPreset() async {
+    await init();
+    return _prefs?.getBool(_keyUseGlossaryPreset) ?? true;
+  }
+
+  Future<void> setUseGlossaryPreset(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keyUseGlossaryPreset, enabled);
   }
 
   Future<String> getTtsEngine() async {

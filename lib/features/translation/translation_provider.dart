@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -284,7 +285,7 @@ class TranslationProvider extends ChangeNotifier {
               enableSourceTranscription: _enableSourceTranscription,
               newSession: false,
               sourceLanguage: await _sourceLanguageHint(),
-              glossary: Glossary.parse(await settingsRepository.getGlossary()),
+              glossary: await _buildGlossary(targetLanguage),
             );
             _reconnectAttempts = 0;
             return;
@@ -354,7 +355,7 @@ class TranslationProvider extends ChangeNotifier {
         voice: voice,
         enableSourceTranscription: _enableSourceTranscription,
         sourceLanguage: await _sourceLanguageHint(),
-        glossary: Glossary.parse(await settingsRepository.getGlossary()),
+        glossary: await _buildGlossary(targetLanguage),
       );
 
       // Start audio recording and stream chunks to network continuously.
@@ -441,6 +442,21 @@ class TranslationProvider extends ChangeNotifier {
       AppLogger.warning('Mic recording could not be started: $e', tag: 'TranslationProvider');
       return null;
     }
+  }
+
+  /// Preset glossary (if enabled) combined with the free-text glossary; free-text entries win.
+  Future<Glossary> _buildGlossary(String targetLanguage) async {
+    var glossary = const Glossary();
+    if (await settingsRepository.getUseGlossaryPreset()) {
+      try {
+        final raw = await rootBundle.loadString(SettingsRepository.glossaryPresetAsset);
+        glossary = Glossary.parse(raw, targetLanguage: targetLanguage);
+      } catch (e) {
+        AppLogger.warning('Glossary preset could not be loaded: $e', tag: 'TranslationProvider');
+      }
+    }
+    final user = Glossary.parse(await settingsRepository.getGlossary(), targetLanguage: targetLanguage);
+    return glossary.merge(user);
   }
 
   Future<String?> _sourceLanguageHint() async {

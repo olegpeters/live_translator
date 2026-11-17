@@ -1,0 +1,482 @@
+# Glossar-Preset: Predigt in einer protestantischen Freikirche
+# (Siebenten-Tags-Adventisten, Bibeltexte, Schriften von Ellen G. White)
+#
+# Format:
+#   [general]   key = value          -> Soniox context.general (Thema/Domäne)
+#   [terms]     Begriff              -> Erkennungshilfe (alle Zielsprachen)
+#   [<sprache>] Quelle = Ziel        -> feste Übersetzung, nur für diese Zielsprache
+#                                       (Quelle wird automatisch auch als Erkennungshilfe genutzt)
+#
+# Bewusst KEINE festen Paare für mehrdeutige Alltagswörter (z. B. "Richter", "Prediger",
+# "Sprüche", "Römer", "Erziehung", "Verband", "Vereinigung", "Division"), sonst würden sie auch
+# in normaler Rede so übersetzt. Für diese gelten nur die eindeutigen Zusammensetzungen
+# (z. B. "Norddeutscher Verband", "Vereinigungsvorsteher"). Ebenso nur Erkennungshilfe:
+# "Vorhang" (Vorhang im Heiligtum vs. Gardine) und "Leuchter".
+
+[general]
+domain = Gottesdienst, Predigt
+topic = Bibelauslegung, Siebenten-Tags-Adventisten, Schriften von Ellen G. White
+setting = protestantische Freikirche, Sabbatgottesdienst
+
+[terms]
+# Bibel: Bücher (Erkennung, auch in Stellenangaben wie "Johannes 3,16")
+Genesis
+Exodus
+Levitikus
+Numeri
+Deuteronomium
+Mose
+Josua
+Richter
+Rut
+Samuel
+Könige
+Chronik
+Esra
+Nehemia
+Ester
+Hiob
+Psalm
+Psalmen
+Sprüche
+Prediger
+Hoheslied
+Jesaja
+Jeremia
+Klagelieder
+Hesekiel
+Daniel
+Hosea
+Joel
+Amos
+Obadja
+Jona
+Micha
+Nahum
+Habakuk
+Zefanja
+Haggai
+Sacharja
+Maleachi
+Matthäus
+Markus
+Lukas
+Johannes
+Apostelgeschichte
+Römer
+Korinther
+Galater
+Epheser
+Philipper
+Kolosser
+Thessalonicher
+Timotheus
+Titus
+Philemon
+Hebräer
+Jakobus
+Petrus
+Judas
+Offenbarung
+# Bibel: Personen und Orte
+Adam
+Eva
+Noah
+Abraham
+Sara
+Isaak
+Jakob
+Josef
+Aaron
+Mirjam
+Josua
+Gideon
+Simson
+Elia
+Elisa
+Nebukadnezar
+Belsazar
+Kyrus
+Johannes der Täufer
+Maria Magdalena
+Nikodemus
+Zachäus
+Lazarus
+Pontius Pilatus
+Barnabas
+Silas
+Luzifer
+Gabriel
+Michael
+Jerusalem
+Bethlehem
+Nazareth
+Galiläa
+Golgatha
+Gethsemane
+Sinai
+Babylon
+Kanaan
+Ägypten
+Jordan
+Zion
+# Adventistische und theologische Begriffe
+Siebenten-Tags-Adventisten
+Adventgemeinde
+Adventisten
+Ellen G. White
+Ellen White
+Sabbat
+Sabbatschule
+Bibelgespräch
+Heiligtum
+Allerheiligstes
+Hohepriester
+Versöhnungstag
+Untersuchungsgericht
+Dreifache Engelsbotschaft
+Geist der Weissagung
+Wiederkunft
+Spätregen
+Frühregen
+Übrige
+Malzeichen des Tieres
+Siegel Gottes
+Gnadenzeit
+Rechtfertigung
+Heiligung
+Erlösung
+Sühne
+Gnade
+Abendmahl
+Fußwaschung
+Glaubenstaufe
+Zehnten
+Gesundheitsbotschaft
+Gemeindeältester
+Diakon
+Diakonin
+Predigtamt
+Erweckung
+Reformation
+Prophetie
+Zehn Gebote
+Lamm Gottes
+Heiliger Geist
+Dreieinigkeit
+Halleluja
+Amen
+# Ellen G. White: Buchtitel (deutsche Ausgaben)
+Der große Kampf
+Das Leben Jesu
+Der bessere Weg
+Schritte zu Christus
+Patriarchen und Propheten
+Propheten und Könige
+Das Wirken der Apostel
+Bilder vom Reiche Gottes
+Auf den Spuren des großen Arztes
+Frühe Schriften
+Zeugnisse für die Gemeinde
+Das bessere Leben
+# Organisation: weltweit
+Freikirche der Siebenten-Tags-Adventisten
+Generalkonferenz
+Generalkonferenz-Vollversammlung
+Division
+Intereuropäische Division
+Euro-Asien-Division
+Verband
+Vereinigung
+Missionsfeld
+Ortsgemeinde
+Gemeindehandbuch
+Glaubensüberzeugungen
+Vereinigungsvorsteher
+Verbandsvorsteher
+Abteilungsleiter
+Gemeindeausschuss
+Gemeindeversammlung
+Gemeindeschreiber
+Schatzmeister
+Gemeindepastor
+Bezirkspastor
+Ordination
+Adventjugend
+Pfadfinder
+ADRA
+# Organisation: Deutschland
+Norddeutscher Verband
+Süddeutscher Verband
+Hansa-Vereinigung
+Niedersachsen-Bremen
+Nordrhein-Westfälische Vereinigung
+Berlin-Mitteldeutsche Vereinigung
+Baden-Württembergische Vereinigung
+Bayerische Vereinigung
+Mittelrheinische Vereinigung
+Theologische Hochschule Friedensau
+Friedensau
+Schulzentrum Marienhöhe
+Krankenhaus Waldfriede
+Advent-Verlag
+Hope Media
+Hope TV
+Adventwohlfahrtswerk
+Deutscher Verein für Gesundheitspflege
+# Zeremonialgesetz: Heiligtum, Opfer, Feste (wichtig für Daniel, Hebräer, Offenbarung)
+Zeremonialgesetz
+Moralgesetz
+Sittengesetz
+Stiftshütte
+Hütte des Zeugnisses
+Vorhof
+Vorhang
+Brandopferaltar
+Räucheraltar
+goldener Altar
+ehernes Waschbecken
+Bundeslade
+Lade des Bundes
+Gnadenstuhl
+Sühnedeckel
+Schaubrote
+Schaubrottisch
+siebenarmiger Leuchter
+Leuchter
+Räucherwerk
+Weihrauch
+Brandopfer
+Speisopfer
+Dankopfer
+Friedensopfer
+Heilsopfer
+Sündopfer
+Schuldopfer
+Trankopfer
+Webopfer
+Hebopfer
+Räucheropfer
+das tägliche Opfer
+das Beständige
+Morgen- und Abendopfer
+Opferlamm
+Passahlamm
+Sündenbock
+Asasel
+Blutbesprengung
+Reinigung des Heiligtums
+2300 Abende und Morgen
+Leviten
+Priestertum
+Brustschild
+Ephod
+Urim und Tummim
+Passah
+Fest der ungesäuerten Brote
+Erstlingsgarbe
+Erstlingsfrucht
+Wochenfest
+Pfingsten
+Posaunenfest
+Laubhüttenfest
+Neumond
+Sabbatjahr
+Jubeljahr
+Erlassjahr
+Gelübde
+Nasiräer
+Beschneidung
+sieben Posaunen
+sieben Schalen
+sieben Siegel
+sieben Leuchter
+Tempel im Himmel
+
+[ru]
+# Bibelbücher (russische Synodalübersetzung)
+1. Mose = Бытие
+2. Mose = Исход
+3. Mose = Левит
+4. Mose = Числа
+5. Mose = Второзаконие
+1. Samuel = 1-я книга Царств
+2. Samuel = 2-я книга Царств
+1. Könige = 3-я книга Царств
+2. Könige = 4-я книга Царств
+1. Chronik = 1-я книга Паралипоменон
+2. Chronik = 2-я книга Паралипоменон
+Hoheslied = Песнь песней
+Klagelieder = Плач Иеремии
+Hesekiel = Иезекииль
+Obadja = Авдий
+Habakuk = Аввакум
+Zefanja = Софония
+Haggai = Аггей
+Maleachi = Малахия
+Apostelgeschichte = Деяния апостолов
+Offenbarung = Откровение
+# Personen und Orte
+Jesus Christus = Иисус Христос
+Mose = Моисей
+Aaron = Аарон
+Elia = Илия
+Elisa = Елисей
+Hiob = Иов
+Jesaja = Исаия
+Jeremia = Иеремия
+Johannes der Täufer = Иоанн Креститель
+Paulus = Павел
+Nebukadnezar = Навуходоносор
+Belsazar = Валтасар
+Golgatha = Голгофа
+Gethsemane = Гефсимания
+Luzifer = Люцифер
+# Adventistische Begriffe
+Siebenten-Tags-Adventisten = Адвентисты седьмого дня
+Adventgemeinde = церковь адвентистов
+Ellen G. White = Елена Уайт
+Ellen White = Елена Уайт
+Sabbat = суббота
+Sabbatschule = Субботняя школа
+Heiligtum = святилище
+Allerheiligstes = Святое святых
+Hohepriester = первосвященник
+Versöhnungstag = День искупления
+Untersuchungsgericht = следственный суд
+Dreifache Engelsbotschaft = весть трёх ангелов
+Geist der Weissagung = Дух пророчества
+Wiederkunft = Второе пришествие
+Spätregen = поздний дождь
+Frühregen = ранний дождь
+Malzeichen des Tieres = начертание зверя
+Siegel Gottes = печать Божья
+Gnadenzeit = время благодати
+Rechtfertigung = оправдание
+Heiligung = освящение
+Abendmahl = Вечеря
+Fußwaschung = омовение ног
+Glaubenstaufe = крещение по вере
+Zehnten = десятина
+Gesundheitsbotschaft = весть о здоровье
+Gemeindeältester = пресвитер церкви
+Lamm Gottes = Агнец Божий
+Heiliger Geist = Святой Дух
+Dreieinigkeit = Троица
+# Ellen G. White: Buchtitel
+Der große Kampf = «Великая борьба»
+Das Leben Jesu = «Желание веков»
+Der bessere Weg = «Путь ко Христу»
+Schritte zu Christus = «Путь ко Христу»
+Patriarchen und Propheten = «Патриархи и пророки»
+Propheten und Könige = «Пророки и цари»
+Das Wirken der Apostel = «Деяния апостолов»
+Bilder vom Reiche Gottes = «Наглядные уроки Христа»
+Auf den Spuren des großen Arztes = «Служение исцеления»
+Frühe Schriften = «Ранние произведения»
+Zeugnisse für die Gemeinde = «Свидетельства для церкви»
+# Organisation: weltweit
+Freikirche der Siebenten-Tags-Adventisten = Церковь христиан адвентистов седьмого дня
+Generalkonferenz = Генеральная Конференция
+Generalkonferenz-Vollversammlung = сессия Генеральной Конференции
+Intereuropäische Division = Интер-Европейский дивизион
+Euro-Asien-Division = Евро-Азиатский дивизион
+Missionsfeld = миссия
+Ortsgemeinde = поместная церковь
+Gemeindehandbuch = Руководство для церкви
+Glaubensüberzeugungen = основные положения вероучения
+Vereinigungsvorsteher = президент конференции
+Verbandsvorsteher = президент униона
+Abteilungsleiter = руководитель отдела
+Gemeindeausschuss = церковный совет
+Gemeindeversammlung = членское собрание церкви
+Gemeindeschreiber = секретарь церкви
+Schatzmeister = казначей
+Gemeindepastor = пастор церкви
+Bezirkspastor = окружной пастор
+Ordination = рукоположение
+Adventjugend = адвентистская молодёжь
+Pfadfinder = Следопыты
+Christliche Pfadfinderschaft der Adventjugend = Клуб следопытов адвентистской молодёжи
+Adventistische Entwicklungs- und Katastrophenhilfe = АДРА
+# Organisation: Deutschland
+Norddeutscher Verband = Северогерманский унион
+Süddeutscher Verband = Южногерманский унион
+Hansa-Vereinigung = Ганзейская конференция
+Berlin-Mitteldeutsche Vereinigung = Берлинско-Среднегерманская конференция
+Baden-Württembergische Vereinigung = Баден-Вюртембергская конференция
+Bayerische Vereinigung = Баварская конференция
+Mittelrheinische Vereinigung = Среднерейнская конференция
+Nordrhein-Westfälische Vereinigung = Северорейн-Вестфальская конференция
+Theologische Hochschule Friedensau = Теологический университет Фриденсау
+Schulzentrum Marienhöhe = школьный центр Мариенхёэ
+Krankenhaus Waldfriede = больница Вальдфриде
+Advent-Verlag = издательство «Адвент-Ферлаг»
+Adventwohlfahrtswerk = Адвентистская благотворительная служба
+Deutscher Verein für Gesundheitspflege = Немецкое общество здоровья
+# Zeremonialgesetz: Heiligtum, Opfer, Feste (Synodalübersetzung)
+Zeremonialgesetz = обрядовый закон
+Moralgesetz = нравственный закон
+Sittengesetz = нравственный закон
+Stiftshütte = скиния
+Hütte des Zeugnisses = скиния свидетельства
+Vorhof = двор
+Brandopferaltar = жертвенник всесожжения
+Räucheraltar = жертвенник курения
+goldener Altar = золотой жертвенник
+ehernes Waschbecken = медный умывальник
+Bundeslade = ковчег завета
+Lade des Bundes = ковчег завета
+Gnadenstuhl = очистилище
+Sühnedeckel = очистилище
+Schaubrote = хлебы предложения
+Schaubrottisch = стол хлебов предложения
+siebenarmiger Leuchter = семисвечник
+Räucherwerk = фимиам
+Weihrauch = ладан
+Brandopfer = всесожжение
+Speisopfer = хлебное приношение
+Dankopfer = благодарственная жертва
+Friedensopfer = мирная жертва
+Heilsopfer = мирная жертва
+Sündopfer = жертва за грех
+Schuldopfer = жертва повинности
+Trankopfer = возлияние
+Webopfer = приношение потрясания
+Hebopfer = возношение
+Räucheropfer = курение
+das tägliche Opfer = ежедневная жертва
+das Beständige = постоянное
+Morgen- und Abendopfer = утренняя и вечерняя жертва
+Opferlamm = жертвенный агнец
+Passahlamm = пасхальный агнец
+Sündenbock = козёл отпущения
+Asasel = Азазель
+Blutbesprengung = кропление кровью
+Reinigung des Heiligtums = очищение святилища
+2300 Abende und Morgen = 2300 вечеров и утр
+Leviten = левиты
+Priestertum = священство
+Brustschild = наперсник
+Ephod = ефод
+Urim und Tummim = урим и туммим
+Passah = Пасха
+Fest der ungesäuerten Brote = праздник опресноков
+Erstlingsgarbe = первый сноп
+Erstlingsfrucht = первые плоды
+Wochenfest = праздник седмиц
+Pfingsten = Пятидесятница
+Posaunenfest = праздник труб
+Laubhüttenfest = праздник кущей
+Neumond = новомесячие
+Sabbatjahr = субботний год
+Jubeljahr = юбилейный год
+Erlassjahr = юбилейный год
+Gelübde = обет
+Nasiräer = назорей
+Beschneidung = обрезание
+sieben Posaunen = семь труб
+sieben Schalen = семь чаш
+sieben Siegel = семь печатей
+sieben Leuchter = семь светильников
+Tempel im Himmel = храм на небе

@@ -317,7 +317,11 @@ class SonioxRealtimeTranslationService {
       },
     };
     _log('Sending STT config (source: ${_sourceLanguage ?? 'auto'}, target: $_targetLanguage, '
-        'glossary: ${_glossary.terms.length} terms / ${_glossary.translationTerms.length} translations)');
+        'glossary: ${_glossary.terms.length} terms / ${_glossary.translationTerms.length} translations, '
+        '~${_glossary.estimatedTokens} tokens)');
+    if (_glossary.estimatedTokens > 7000) {
+      _log('Warning: glossary context is close to the Soniox limit of 8000 tokens');
+    }
     _sttChannel?.sink.add(jsonEncode(config));
   }
 

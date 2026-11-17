@@ -24,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _micRecording = false;
   String _sourceLanguage = 'de';
   final _glossaryController = TextEditingController();
+  bool _useGlossaryPreset = true;
   bool _isLoading = true;
 
   final List<Map<String, String>> _languages = const [
@@ -66,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final micRecording = await widget.settingsRepository.getMicRecording();
     final sourceLanguage = await widget.settingsRepository.getSourceLanguage();
     final glossary = await widget.settingsRepository.getGlossary();
+    final useGlossaryPreset = await widget.settingsRepository.getUseGlossaryPreset();
 
     setState(() {
       if (apiKey != null) {
@@ -80,6 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _micRecording = micRecording;
       _sourceLanguage = sourceLanguage;
       _glossaryController.text = glossary;
+      _useGlossaryPreset = useGlossaryPreset;
       _isLoading = false;
     });
   }
@@ -94,6 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setMicRecording(_micRecording);
     await widget.settingsRepository.setSourceLanguage(_sourceLanguage);
     await widget.settingsRepository.setGlossary(_glossaryController.text);
+    await widget.settingsRepository.setUseGlossaryPreset(_useGlossaryPreset);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
 
@@ -238,12 +242,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text('Glossar-Preset „Predigt (Adventisten)“ verwenden'),
+                    subtitle: const Text(
+                      'Bibelbücher, Namen, adventistische Begriffe und Ellen-White-Buchtitel. '
+                      'Wird mit dem Freitext-Glossar kombiniert; eigene Einträge haben Vorrang.',
+                    ),
+                    value: _useGlossaryPreset,
+                    onChanged: (val) => setState(() => _useGlossaryPreset = val ?? false),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _glossaryController,
                     minLines: 3,
                     maxLines: 8,
                     decoration: const InputDecoration(
-                      labelText: 'Glossar (Namen, Fachbegriffe)',
+                      labelText: 'Eigenes Glossar (Namen, Fachbegriffe)',
                       alignLabelWithHint: true,
                       hintText: 'Ein Eintrag pro Zeile, z. B.\nAaron\nAnbetung = поклонение',
                       helperText: 'Begriff = Erkennungshilfe; "Quelle = Ziel" legt die Übersetzung fest.',
