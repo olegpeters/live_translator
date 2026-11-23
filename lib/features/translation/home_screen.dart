@@ -13,7 +13,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Live-Übersetzung Gottesdienst'),
+        title: const Text('Auditorium'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -328,7 +328,7 @@ class HomeScreen extends StatelessWidget {
                       reverse: true, // Auto-scroll to bottom on new text
                       child: Text(
                         provider.targetTranscript.isEmpty
-                            ? 'Die übersetzten Sätze erscheinen hier live während des Gottesdienstes...'
+                            ? 'Die übersetzten Sätze erscheinen hier live während des Vortrags...'
                             : provider.targetTranscript,
                         style: TextStyle(
                           fontSize: 18,

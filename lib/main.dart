@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
         audioService: audioService,
       ),
       child: MaterialApp(
-        title: 'Gottesdienst Live-Übersetzung',
+        title: 'Auditorium',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

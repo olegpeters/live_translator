@@ -1,11 +1,11 @@
 {
-    "name": "live_translator",
-    "short_name": "live_translator",
+    "name": "Auditorium – Live-Übersetzung",
+    "short_name": "Auditorium",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Vorträge live übersetzt und in die Kopfhörer gesprochen.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -18,6 +18,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Live-Übersetzung Gottesdienst'), findsOneWidget);
+    expect(find.text('Auditorium'), findsOneWidget);
   });
 }

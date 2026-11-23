@@ -48,7 +48,7 @@ class TranslationForegroundService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("Live-Übersetzung aktiv")
+            .setContentTitle("Auditorium – Übersetzung aktiv")
             .setContentText("Mikrofon wird übersetzt")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)

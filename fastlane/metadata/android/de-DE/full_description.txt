@@ -1,0 +1,25 @@
+Auditorium übersetzt Vorträge, Predigten und Seminare live – und spricht die Übersetzung direkt in deine Kopfhörer. Kein Mitlesen, kein Starren aufs Display: Bildschirm aus, Handy in die Tasche, zuhören. Gebaut für lange Vorträge, die eine Stunde und mehr dauern.
+
+<b>Das ganze Auditorium versteht</b>
+Du sitzt in einem Vortrag, einem Gottesdienst oder einer Schulung, aber die Sprache ist nicht deine? Auditorium hört über das Mikrofon deines Smartphones mit, übersetzt fortlaufend und liest dir die Übersetzung mit einer natürlichen Stimme vor – Satz für Satz, nur wenige Sekunden hinter dem Redner.
+
+<b>Gemacht für lange Vorträge</b>
+• Läuft im Hintergrund weiter – auch bei ausgeschaltetem Bildschirm
+• Gleichmäßiger Redefluss: Die Übersetzung wird in ganzen Sätzen gesprochen, mit natürlichen Pausen
+• Holt automatisch auf, wenn der Redner schnell spricht, damit du nicht den Anschluss verlierst
+• Mit Kopfhörern (auch Bluetooth) hörst du die Übersetzung, während der Saal das Original hört
+
+<b>Fachbegriffe richtig übersetzt</b>
+Hinterlege ein eigenes Glossar mit Namen und Fachbegriffen, damit sie korrekt erkannt und einheitlich übersetzt werden. Für Predigten ist ein Glossar mit biblischen Namen und Begriffen bereits enthalten.
+
+<b>Sprachen</b>
+• Gesprochene Sprache: Deutsch oder Englisch (oder automatisch erkennen)
+• Übersetzung in: Russisch, Ukrainisch, Englisch, Spanisch, Französisch
+• Mehrere natürliche Stimmen zur Auswahl
+• Die übersetzten Sätze erscheinen zusätzlich als Text auf dem Bildschirm
+
+<b>Wichtig: Soniox-Konto erforderlich</b>
+Auditorium nutzt für Spracherkennung, Übersetzung und Sprachausgabe den Cloud-Dienst Soniox. Du benötigst dafür einen eigenen Soniox-API-Schlüssel (erhältlich auf soniox.com), den du in den Einstellungen einträgst. Die Nutzung wird von Soniox nach Verbrauch abgerechnet. Für die Übersetzung ist eine Internetverbindung nötig.
+
+<b>Datenschutz</b>
+Das Mikrofon-Audio wird während der Übersetzung verschlüsselt an Soniox (Rechenzentrum in der EU) übertragen und dort verarbeitet. Dein API-Schlüssel wird verschlüsselt nur auf deinem Gerät gespeichert. Auditorium zeigt keine Werbung und erstellt keine Nutzerprofile.
