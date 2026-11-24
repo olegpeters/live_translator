@@ -119,6 +119,32 @@ void main() {
       await ttsChannel.incoming.close();
     });
 
+    test('connect uses the endpoints of the given region, reconnect keeps it', () async {
+      final hosts = <String>[];
+      final regional = SonioxRealtimeTranslationService(
+        channelFactory: (uri, headers) {
+          hosts.add(uri.host);
+          return uri.host.contains('stt-rt') ? sttChannel : ttsChannel;
+        },
+      );
+      await regional.connect(apiKey: 'k', targetLanguage: 'ru', region: SonioxRegion.us);
+      expect(hosts, ['stt-rt.soniox.com', 'tts-rt.soniox.com']);
+      await regional.dispose();
+    });
+
+    test('default region is EU', () async {
+      final hosts = <String>[];
+      final regional = SonioxRealtimeTranslationService(
+        channelFactory: (uri, headers) {
+          hosts.add(uri.host);
+          return uri.host.contains('stt-rt') ? sttChannel : ttsChannel;
+        },
+      );
+      await regional.connect(apiKey: 'k', targetLanguage: 'ru');
+      expect(hosts, ['stt-rt.eu.soniox.com', 'tts-rt.eu.soniox.com']);
+      await regional.dispose();
+    });
+
     test('connect sends STT config and TTS config', () async {
       final connected = service.connect(
         apiKey: 'soniox-test-key',

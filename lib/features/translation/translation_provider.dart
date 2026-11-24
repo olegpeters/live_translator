@@ -12,6 +12,7 @@ import '../../core/audio/wav_file_writer.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/android_platform.dart';
 import '../../core/network/soniox_realtime_translation_service.dart';
+import '../../core/network/soniox_region.dart' show SonioxRegionDetector, SonioxKeyCheck;
 import '../../core/storage/settings_repository.dart';
 import '../../core/translation/glossary.dart';
 import 'transcript_model.dart';
@@ -21,6 +22,7 @@ class TranslationProvider extends ChangeNotifier {
   final SonioxRealtimeTranslationService translationService;
   final AudioService audioService;
   final OnboardTtsService onboardTtsService;
+  final SonioxRegionDetector regionDetector;
   final PlayoutScheduler playoutScheduler;
 
   StreamSubscription? _audioRecordSubscription;
@@ -73,7 +75,9 @@ class TranslationProvider extends ChangeNotifier {
     required this.audioService,
     OnboardTtsService? onboardTtsService,
     PlayoutScheduler? playoutScheduler,
+    SonioxRegionDetector? regionDetector,
   })  : onboardTtsService = onboardTtsService ?? OnboardTtsService(),
+        regionDetector = regionDetector ?? SonioxRegionDetector(),
         playoutScheduler = playoutScheduler ?? PlayoutScheduler(output: audioService.createPcmOutput()) {
     audioService.isPlaybackActive = () => this.playoutScheduler.backlogSeconds > 0;
     _initListeners();
@@ -300,6 +304,24 @@ class TranslationProvider extends ChangeNotifier {
     await stopTranslation();
   }
 
+  /// Region of the API key's Soniox project: stored after the check on saving the key;
+  /// detected here for keys saved before region support. Null = key rejected everywhere.
+  Future<SonioxRegion?> _resolveRegion(String apiKey) async {
+    final stored = SonioxRegion.fromCode(await settingsRepository.getSonioxRegion());
+    if (stored != null) return stored;
+    _statusMessage = 'Prüfe API-Key...';
+    notifyListeners();
+    final check = await regionDetector.detect(apiKey);
+    if (check == SonioxKeyCheck.invalid) {
+      _statusMessage = 'Fehler: Der API-Key wird von Soniox nicht akzeptiert. Bitte in den Einstellungen prüfen.';
+      notifyListeners();
+      return null;
+    }
+    final region = check.region;
+    if (region != null) await settingsRepository.setSonioxRegion(region.code);
+    return region ?? SonioxRegion.eu; // unknown (offline): try EU, the connection reports errors
+  }
+
   Future<void> startTranslation() async {
     _reconnectAttempts = 0;
     _isStopping = false;
@@ -311,6 +333,9 @@ class TranslationProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    final region = await _resolveRegion(apiKey.trim());
+    if (region == null) return; // invalid key, message already set
 
     final targetLanguage = await settingsRepository.getTargetLanguage();
     final voice = await settingsRepository.getVoice();
@@ -356,6 +381,7 @@ class TranslationProvider extends ChangeNotifier {
         enableSourceTranscription: _enableSourceTranscription,
         sourceLanguage: await _sourceLanguageHint(),
         glossary: await _buildGlossary(targetLanguage),
+        region: region,
       );
 
       // Start audio recording and stream chunks to network continuously.

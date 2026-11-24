@@ -7,6 +7,10 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 ## 1. Soniox WebSocket Authentication
 - **Web (Chrome):** Browser WebSockets do not support `Authorization: Bearer` HTTP headers. Authenticate via subprotocols list: `protocols: ['soniox-api-key', apiKey]`.
 - **Native (Android/iOS):** Authenticate via `Authorization: Bearer <API_KEY>` HTTP header.
+- **Regions (`SonioxRegion`):** a project's region is fixed at creation (default US, EU on request); its keys
+  only authenticate at that region's endpoints (US key at `*.eu.soniox.com` → `401 unauthenticated`, "Incorrect
+  API key"). `SonioxRegionDetector` probes EU first, then US, when a key is saved (or at start if unknown) and
+  stores the region; the settings show it with a hint how to get EU processing.
 - **Never send `api_key` in config payloads** (deprecated; "don't send it both ways"; refused from 15 Jan 2027).
 
 ## 2. Soniox STT (`stt-rt-v5`)
@@ -16,7 +20,7 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - Original-language text is not logged (user preference); only token timing (`start_ms`/`end_ms`) for gap diagnostics. Translated text is logged only in debug builds (release: length only), as the privacy policy promises the log holds no transcripts or translations.
 - STT and TTS connections close after ~40 s without client messages; TTS keepalive is `{"keep_alive": true}` (sent every 20 s).
 
-## 3. Soniox Realtime TTS Protocol (`wss://tts-rt.eu.soniox.com/tts-websocket`)
+## 3. Soniox Realtime TTS Protocol (`wss://tts-rt[.eu].soniox.com/tts-websocket`)
 - **Stream config:** one JSON per stream: `{"stream_id", "model": "tts-rt-v2", "language", "voice", "audio_format": "pcm_s16le", "sample_rate": 24000}`. `language` is mandatory; no `type` fields.
 - **Text:** `{"stream_id", "text", "text_end"}`; **cancel:** `{"stream_id", "cancel": true}`.
 - **Responses:** `audio` (base64) + `audio_end`, then `{"terminated": true}`. A stream is complete only after `terminated`. After a stream error the server also sends `terminated`.

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_report.dart';
+import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
 import 'log_viewer_screen.dart';
 
@@ -28,6 +29,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _glossaryController = TextEditingController();
   bool _useGlossaryPreset = true;
   bool _isLoading = true;
+  bool _isSaving = false;
+  final _regionDetector = SonioxRegionDetector();
+  SonioxRegion? _region;
+  String _savedApiKey = '';
 
   final List<Map<String, String>> _languages = const [
     {'code': 'ru', 'name': 'Russisch (ru)'},
@@ -70,11 +75,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final sourceLanguage = await widget.settingsRepository.getSourceLanguage();
     final glossary = await widget.settingsRepository.getGlossary();
     final useGlossaryPreset = await widget.settingsRepository.getUseGlossaryPreset();
+    final region = SonioxRegion.fromCode(await widget.settingsRepository.getSonioxRegion());
 
     setState(() {
       if (apiKey != null) {
         _apiKeyController.text = apiKey;
+        _savedApiKey = apiKey.trim();
       }
+      _region = region;
       _selectedLanguage = language;
       _selectedVoice = voice;
       _selectedTtsEngine = ttsEngine;
@@ -90,7 +98,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    await widget.settingsRepository.setApiKey(_apiKeyController.text.trim());
+    setState(() => _isSaving = true);
+    final apiKey = _apiKeyController.text.trim();
+    await widget.settingsRepository.setApiKey(apiKey);
     await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
     await widget.settingsRepository.setVoice(_selectedVoice);
     await widget.settingsRepository.setTtsEngine(_selectedTtsEngine);
@@ -103,12 +113,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Einstellungen erfolgreich gespeichert')),
-      );
-      Navigator.of(context).pop();
+    // Soniox keys only work in their project's region (default US, EU on request):
+    // check a new key now instead of failing at the start of a talk.
+    SonioxKeyCheck? check;
+    if (apiKey.isEmpty) {
+      await widget.settingsRepository.setSonioxRegion(null);
+      _region = null;
+    } else if (apiKey != _savedApiKey || _region == null) {
+      check = await _regionDetector.detect(apiKey);
+      // invalid / unknown: stored as "not detected", checked again at start
+      await widget.settingsRepository.setSonioxRegion(check.region?.code);
+      _region = check.region;
     }
+    _savedApiKey = apiKey;
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    final messenger = ScaffoldMessenger.of(context);
+    switch (check) {
+      case SonioxKeyCheck.invalid:
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Gespeichert, aber der API-Key wird von Soniox nicht akzeptiert. Bitte prüfen.'),
+        ));
+        return; // stay: the key needs fixing
+      case SonioxKeyCheck.us:
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Gespeichert. Der API-Key gehört zu einem Soniox-Projekt in den USA.'),
+        ));
+        return; // stay: show the region hint below the key
+      case SonioxKeyCheck.unknown:
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Gespeichert. Der API-Key konnte nicht geprüft werden (offline?); Prüfung beim Start.'),
+        ));
+      case SonioxKeyCheck.eu:
+      case null:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Einstellungen erfolgreich gespeichert')),
+        );
+    }
+    Navigator.of(context).pop();
+  }
+
+  Widget _regionInfo(SonioxRegion region) {
+    final eu = region == SonioxRegion.eu;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: eu ? scheme.secondaryContainer : scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(eu ? Icons.verified_user_outlined : Icons.public, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              eu
+                  ? 'Region: EU – Audio und Texte werden in der EU verarbeitet.'
+                  : 'Region: USA – Audio und Texte werden in den USA verarbeitet. '
+                      'Für Verarbeitung in der EU: in der Soniox-Konsole unter „Security & compliance“ '
+                      'die EU-Region beantragen, ein Projekt in der EU-Region anlegen und dessen API-Key hier eintragen.',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -169,6 +241,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  if (_region != null) ...[
+                    const SizedBox(height: 8),
+                    _regionInfo(_region!),
+                  ],
                   const SizedBox(height: 24),
                   const Text(
                     'Übersetzungs-Einstellungen',
@@ -402,11 +478,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _saveSettings,
-                      child: const Text(
-                        'Speichern',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      onPressed: _isSaving ? null : _saveSettings,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            )
+                          : const Text(
+                              'Speichern',
+                              style: TextStyle(fontSize: 16),
+                            ),
                     ),
                   ),
                 ],

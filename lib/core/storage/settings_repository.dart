@@ -17,6 +17,7 @@ class SettingsRepository {
   static const String _keySourceLanguage = 'source_language';
   static const String _keyGlossary = 'glossary';
   static const String _keyUseGlossaryPreset = 'use_glossary_preset';
+  static const String _keySonioxRegion = 'soniox_region';
 
   /// Bundled glossary preset (sermon context, Seventh-day Adventist church).
   static const String glossaryPresetAsset = 'assets/glossary/adventist_sermon.txt';
@@ -48,6 +49,21 @@ class SettingsRepository {
 
   Future<void> setApiKey(String apiKey) async {
     await _secureStorage.write(key: _keyApiKey, value: apiKey);
+  }
+
+  /// Detected Soniox region of the stored API key ('eu' / 'us'); null = not detected yet.
+  Future<String?> getSonioxRegion() async {
+    await init();
+    return _prefs?.getString(_keySonioxRegion);
+  }
+
+  Future<void> setSonioxRegion(String? code) async {
+    await init();
+    if (code == null) {
+      await _prefs?.remove(_keySonioxRegion);
+    } else {
+      await _prefs?.setString(_keySonioxRegion, code);
+    }
   }
 
   Future<String> getVoice() async {

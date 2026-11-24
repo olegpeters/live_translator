@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../audio/playout_scheduler.dart' show SegmentBoundary;
@@ -12,6 +10,9 @@ import '../logging/app_logger.dart';
 import '../translation/glossary.dart';
 import '../translation/translation_segmenter.dart';
 import '../translation/tts_stream_manager.dart';
+import 'soniox_region.dart';
+
+export 'soniox_region.dart' show SonioxRegion, WebSocketChannelFactory;
 
 enum TranslationConnectionState {
   disconnected,
@@ -22,8 +23,6 @@ enum TranslationConnectionState {
   error,
 }
 
-typedef WebSocketChannelFactory = WebSocketChannel Function(
-    Uri uri, Map<String, String>? headers);
 
 /// A chunk of translated PCM16 mono audio together with its sample rate and sequence tracking.
 class AudioDelta {
@@ -67,11 +66,6 @@ class TranscriptUpdate {
 }
 
 class SonioxRealtimeTranslationService {
-  static const String _sttBaseUrl =
-      'wss://stt-rt.eu.soniox.com/transcribe-websocket';
-  static const String _ttsBaseUrl =
-      'wss://tts-rt.eu.soniox.com/tts-websocket';
-
   /// 50 ms of 24 kHz PCM16 mono audio (24000 * 0.05 * 2 bytes) for low latency.
   static const int frameBytes = 2400;
   /// Max buffered pending input audio (~3 seconds of 24kHz PCM16 mono = 144,000 bytes)
@@ -105,6 +99,7 @@ class SonioxRealtimeTranslationService {
 
   Stopwatch? _connectWatch;
   String _apiKey = '';
+  SonioxRegion _region = SonioxRegion.eu;
   String _targetLanguage = 'ru';
   String _voice = 'Daniel';
   bool _enableSourceTranscription = false;
@@ -186,6 +181,8 @@ class SonioxRealtimeTranslationService {
     bool newSession = true,
     String? sourceLanguage,
     Glossary glossary = const Glossary(),
+    /// Region of the API key's Soniox project; null keeps the previous one (reconnects).
+    SonioxRegion? region,
   }) async {
     if (_currentState == TranslationConnectionState.connecting) {
       _log('Connect already in progress; waiting for ready');
@@ -198,6 +195,7 @@ class SonioxRealtimeTranslationService {
     }
 
     _apiKey = apiKey;
+    if (region != null) _region = region;
     _targetLanguage = targetLanguage;
     _voice = voice;
     _enableSourceTranscription = enableSourceTranscription;
@@ -224,38 +222,12 @@ class SonioxRealtimeTranslationService {
     _readyCompleter = readyCompleter;
 
     _setState(TranslationConnectionState.connecting);
-    _log('Connecting to Soniox STT & TTS WebSockets...');
+    _log('Connecting to Soniox STT & TTS WebSockets (region ${_region.code})...');
 
     try {
-      final headers = {'Authorization': 'Bearer $apiKey'};
-      final protocols = ['soniox-api-key', apiKey];
-
-      // 1. Establish STT + Translation WebSocket connection
-      final sttUri = Uri.parse(_sttBaseUrl);
-      final factory = channelFactory;
-      if (factory != null) {
-        _sttChannel = factory(sttUri, headers);
-      } else if (kIsWeb) {
-        _sttChannel = WebSocketChannel.connect(
-          sttUri,
-          protocols: protocols,
-        );
-      } else {
-        _sttChannel = IOWebSocketChannel.connect(sttUri, headers: headers);
-      }
-
-      // 2. Establish TTS WebSocket connection
-      final ttsUri = Uri.parse(_ttsBaseUrl);
-      if (factory != null) {
-        _ttsChannel = factory(ttsUri, headers);
-      } else if (kIsWeb) {
-        _ttsChannel = WebSocketChannel.connect(
-          ttsUri,
-          protocols: protocols,
-        );
-      } else {
-        _ttsChannel = IOWebSocketChannel.connect(ttsUri, headers: headers);
-      }
+      // 1. STT + translation, 2. TTS
+      _sttChannel = openSonioxChannel(Uri.parse(_region.sttUrl), apiKey, factory: channelFactory);
+      _ttsChannel = openSonioxChannel(Uri.parse(_region.ttsUrl), apiKey, factory: channelFactory);
 
       // Listen to STT stream
       _sttSubscription = _sttChannel!.stream.listen(
@@ -407,17 +379,7 @@ class SonioxRealtimeTranslationService {
     if (_currentState != TranslationConnectionState.connected) return;
 
     try {
-      final ttsUri = Uri.parse(_ttsBaseUrl);
-      final headers = {'Authorization': 'Bearer $_apiKey'};
-      final protocols = ['soniox-api-key', _apiKey];
-      final factory = channelFactory;
-      if (factory != null) {
-        _ttsChannel = factory(ttsUri, headers);
-      } else if (kIsWeb) {
-        _ttsChannel = WebSocketChannel.connect(ttsUri, protocols: protocols);
-      } else {
-        _ttsChannel = IOWebSocketChannel.connect(ttsUri, headers: headers);
-      }
+      _ttsChannel = openSonioxChannel(Uri.parse(_region.ttsUrl), _apiKey, factory: channelFactory);
       _listenTts();
       _log('TTS WebSocket reconnected');
       _tts.onConnectionReset();
