@@ -3,7 +3,7 @@
 Android-App (Flutter), die Vorträge, Predigten und Seminare live übersetzt und die Übersetzung
 per Sprachausgabe direkt in die Kopfhörer spricht – auch bei ausgeschaltetem Bildschirm.
 
-- Spracherkennung, Übersetzung und Sprachausgabe: [Soniox](https://soniox.com) (Realtime STT + TTS, EU-Endpunkte)
+- Spracherkennung, Übersetzung und Sprachausgabe: [Soniox](https://soniox.com) (Realtime STT + TTS; EU- oder US-Endpunkte je nach Region des Soniox-Projekts, automatisch erkannt)
 - Gesprochene Sprache: Deutsch, Englisch oder automatisch
 - Zielsprachen: Russisch, Ukrainisch, Englisch, Spanisch, Französisch
 - Eigenes Glossar für Namen und Fachbegriffe; Glossar für Predigten ist enthalten
