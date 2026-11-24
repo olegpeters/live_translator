@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/log_report.dart';
 import '../../core/storage/settings_repository.dart';
 import 'log_viewer_screen.dart';
 
@@ -115,6 +116,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _apiKeyController.dispose();
     _glossaryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _reportBug() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final shared = await LogReport.share(bugReport: true);
+      if (shared == null) {
+        messenger.showSnackBar(const SnackBar(content: Text('Noch keine Protokolleinträge vorhanden.')));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Fehlerbericht konnte nicht erstellt werden: $e')));
+    }
   }
 
   @override
@@ -373,6 +386,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       );
                     },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: const Text('Fehler melden'),
+                    subtitle: const Text(
+                      'Teilt das technische Protokoll (ohne Audio und Vortragstext) per Mail oder Messenger. '
+                      'Du entscheidest, an wen es geht.',
+                    ),
+                    onTap: _reportBug,
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

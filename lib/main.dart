@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/audio/audio_service.dart';
 import 'core/logging/app_logger.dart';
+import 'core/logging/error_handlers.dart';
 import 'core/network/soniox_realtime_translation_service.dart';
 import 'core/storage/settings_repository.dart';
 import 'features/translation/home_screen.dart';
@@ -10,6 +11,7 @@ import 'features/translation/translation_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installErrorHandlers();
 
   AppLogger.info('Auditorium gestartet', tag: 'App');
 

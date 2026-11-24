@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show ShareResultStatus;
 
-import '../../core/audio/wav_file_writer.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/log_report.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -71,53 +69,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<void> _saveOrShareLogFile() async {
-    final formattedText = AppLogger.exportFormattedLog();
-    if (formattedText.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keine Log-Einträge zum Speichern vorhanden.')),
-        );
-      }
-      return;
-    }
-
     try {
-      final now = DateTime.now();
-      final dateStr =
-          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
-      final fileName = 'auditorium_log_$dateStr.txt';
-
-      final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsString(formattedText);
-
-      final files = [XFile(file.path, mimeType: 'text/plain', name: fileName)];
-      // Attach the latest diagnostic mic recording, if any.
-      final docsDir = await getApplicationDocumentsDirectory();
-      await for (final entity in docsDir.list()) {
-        final name = entity.uri.pathSegments.last;
-        if (entity is File && name.startsWith(WavFileWriter.filePrefix)) {
-          files.add(XFile(entity.path, mimeType: 'audio/wav', name: name));
-        }
-      }
-      final result = await Share.shareXFiles(
-        files,
-        subject: 'Auditorium App Log ($fileName)',
-        text: 'Auditorium Debugging-Protokoll',
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.status == ShareResultStatus.success
-                  ? 'Log-Datei erfolgreich exportiert ($fileName)'
-                  : 'Log-Datei unter $filePath bereitgestellt',
-            ),
-          ),
-        );
-      }
+      final shared = await LogReport.share();
+      if (!mounted) return;
+      final message = shared == null
+          ? 'Keine Log-Einträge zum Speichern vorhanden.'
+          : shared.$2 == ShareResultStatus.success
+              ? 'Log-Datei erfolgreich exportiert'
+              : 'Log-Datei unter ${shared.$1} bereitgestellt';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
