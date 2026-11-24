@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datenschutzerklärung – Auditorium</title>
+<meta name="description" content="Datenschutzerklärung der Android-App Auditorium (de.jetapps.auditorium).">
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1c1d22;
+    --muted: #4a4d55;
+    --line: #e2dfd8;
+    --head: #f4f2ee;
+    --link: #2a4bd7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15161a;
+      --text: #ececef;
+      --muted: #b4b6bd;
+      --line: #34363d;
+      --head: #1f2026;
+      --link: #8ea6ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.3rem; margin: 40px 0 12px; }
+  p, ul { margin: 0 0 14px; }
+  .meta { color: var(--muted); margin-bottom: 28px; }
+  a { color: var(--link); overflow-wrap: anywhere; }
+  address { font-style: normal; margin-bottom: 14px; }
+  .table-wrap { overflow-x: auto; margin: 0 0 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--head); }
+  code { font-size: 0.92em; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Datenschutzerklärung – Auditorium</h1>
+<p class="meta">Stand: 24. November 2026</p>
+
+<p>Diese Datenschutzerklärung gilt für die Android-App „Auditorium“ (Paketname <code>de.jetapps.auditorium</code>). Sie erklärt, welche personenbezogenen Daten die App verarbeitet, wozu und welche Rechte Sie haben.</p>
+
+<h2>1. Verantwortlicher</h2>
+<p>Verantwortlich im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:</p>
+<address>
+  Oleg Peters<br>
+  Hußstrasse 3<br>
+  76276 Ettlingen, Deutschland<br>
+  E-Mail: <a href="mailto:datenschutz@jetapps.de">datenschutz@jetapps.de</a>
+</address>
+<p>Ein Datenschutzbeauftragter ist nicht bestellt, da hierzu keine gesetzliche Pflicht besteht.</p>
+
+<h2>2. Überblick</h2>
+<p>Auditorium übersetzt gesprochene Vorträge live und gibt die Übersetzung als Sprache und Text aus. Dafür wird das Mikrofon-Audio während einer laufenden Übersetzung an den Sprachdienst Soniox gesendet. Wir als Anbieter der App betreiben keine eigenen Server. Daten erhalten wir nur, wenn Sie uns selbst einen Fehlerbericht schicken.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th scope="col">Daten</th><th scope="col">Wo verarbeitet</th><th scope="col">Gespeichert</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Mikrofon-Audio während der Übersetzung</td><td>Soniox, in der EU oder den USA je nach Ihrem Soniox-Projekt (Abschnitte 3 und 6)</td><td>Nicht von der App; siehe Abschnitt 3</td></tr>
+    <tr><td>Eigene Glossarbegriffe</td><td>Auf dem Gerät; als Kontext an Soniox</td><td>Auf dem Gerät, bis Sie sie löschen</td></tr>
+    <tr><td>Soniox-API-Schlüssel</td><td>Auf dem Gerät; bei Verbindungsaufbau an Soniox</td><td>Verschlüsselt auf dem Gerät</td></tr>
+    <tr><td>Einstellungen</td><td>Nur auf dem Gerät</td><td>Auf dem Gerät</td></tr>
+    <tr><td>Technisches Protokoll</td><td>Auf dem Gerät; an uns nur, wenn Sie es über „Fehler melden“ senden</td><td>Auf dem Gerät bis zum Beenden der App; bei uns siehe Abschnitt 7</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Die App enthält keine Werbung, keine Analyse-, Absturzmelde- oder Tracking-Dienste und kein Nutzerkonto.</p>
+
+<h2>3. Mikrofon-Audio und Übersetzung</h2>
+<p>Das Mikrofon wird nur aufgenommen, solange Sie eine Übersetzung aktiv gestartet haben. Während dieser Zeit zeigt Android eine dauerhafte Benachrichtigung an.</p>
+<p><strong>Was verarbeitet wird:</strong> das Audiosignal des Mikrofons (Sprachaufnahme). Darin können die Stimme und die Worte des Vortragenden sowie Umgebungsgeräusche enthalten sein. Außerdem werden die gewählten Sprachen, die Stimme für die Sprachausgabe und Ihre Glossarbegriffe übermittelt.</p>
+<p><strong>Wohin:</strong> Das Audio wird direkt vom Gerät verschlüsselt (TLS) an die Echtzeit-Schnittstellen von Soniox gesendet. Welche Schnittstellen das sind, hängt von der Region Ihres Soniox-Projekts ab: Gehört Ihr API-Schlüssel zu einem Projekt in der EU-Region, nutzt die App die EU-Schnittstellen (<code>stt-rt.eu.soniox.com</code>, <code>tts-rt.eu.soniox.com</code>), und Audio und Texte werden in der EU verarbeitet. Gehört er zu einem Projekt in der US-Region, die bei Soniox voreingestellt ist, nutzt die App die US-Schnittstellen (<code>stt-rt.soniox.com</code>, <code>tts-rt.soniox.com</code>), und Audio und Texte werden in den USA verarbeitet. Die App erkennt die Region beim Speichern des Schlüssels über eine kurze Prüfverbindung ohne Audio und zeigt sie in den Einstellungen an. Die EU-Region können Sie in der Soniox-Konsole beantragen. Soniox erkennt die Sprache, übersetzt sie und erzeugt daraus die gesprochene Übersetzung, die an die App zurückgeschickt wird.</p>
+<p><strong>Ihr Soniox-Konto:</strong> Die App nutzt den Soniox-API-Schlüssel, den Sie selbst in den Einstellungen eintragen. Die Verarbeitung findet daher über Ihr eigenes Soniox-Konto statt. Für die Verarbeitung bei Soniox gelten zusätzlich die Datenschutzbestimmungen von Soniox: <a href="https://soniox.com/policies/privacy-policy">https://soniox.com/policies/privacy-policy</a>.</p>
+<p><strong>Zweck und Rechtsgrundlage:</strong> Die Verarbeitung dient ausschließlich der von Ihnen gewünschten Live-Übersetzung (Art. 6 Abs. 1 lit. b DSGVO).</p>
+<p><strong>Speicherdauer:</strong> Die App speichert das Audio nicht und gibt es an niemanden sonst weiter. Nach Angaben von Soniox werden Echtzeit-Anfragen nur flüchtig im Arbeitsspeicher verarbeitet; Audio, Texte und erzeugte Sprache speichert Soniox dabei nicht.</p>
+<p><strong>Hinweis zu Aufnahmen anderer Personen:</strong> Mit der App wird die Stimme des Vortragenden verarbeitet. Bitte nutzen Sie die App nur bei Vorträgen, bei denen das zulässig ist, etwa bei öffentlichen Veranstaltungen oder mit Zustimmung des Veranstalters.</p>
+
+<h2>4. Daten auf Ihrem Gerät</h2>
+<p>Die folgenden Daten bleiben auf Ihrem Gerät. Wir haben darauf keinen Zugriff.</p>
+<ul>
+  <li><strong>Soniox-API-Schlüssel:</strong> verschlüsselt im geschützten Speicher von Android (Keystore) abgelegt. Er wird nur beim Verbindungsaufbau verschlüsselt an Soniox übermittelt.</li>
+  <li><strong>Einstellungen und Glossar:</strong> Sprachen, Stimme, Lautstärke und Ihre eigenen Glossarbegriffe.</li>
+  <li><strong>Technisches Protokoll:</strong> Ereignisse wie Verbindungsstatus, Zeitangaben und Fehlermeldungen. Es enthält weder Audio noch den Wortlaut des Vortrags und wird beim Beenden der App gelöscht. Es verlässt das Gerät nur, wenn Sie es selbst exportieren oder über „Fehler melden“ teilen – an den Empfänger, den Sie dabei wählen (Abschnitt 7).</li>
+</ul>
+<p>Alle gespeicherten Daten können Sie löschen, indem Sie in den Android-Einstellungen die App-Daten löschen oder die App deinstallieren.</p>
+<p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO; für das Speichern auf dem Gerät zusätzlich § 25 Abs. 2 Nr. 2 TDDDG, da es für die von Ihnen gewünschte Funktion unbedingt erforderlich ist.</p>
+
+<h2>5. Berechtigungen</h2>
+<p>Die App fragt nur die Berechtigungen ab, die für die Übersetzung nötig sind. Mikrofon und Benachrichtigungen können Sie jederzeit in den Android-Einstellungen entziehen.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th scope="col">Berechtigung</th><th scope="col">Wofür</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Mikrofon</td><td>Den Vortrag für die Übersetzung aufnehmen, nur während einer gestarteten Übersetzung</td></tr>
+    <tr><td>Internet</td><td>Verbindung zu Soniox für Erkennung, Übersetzung und Sprachausgabe</td></tr>
+    <tr><td>Vordergrunddienst (Mikrofon)</td><td>Übersetzung läuft weiter, wenn der Bildschirm aus ist oder die App im Hintergrund ist</td></tr>
+    <tr><td>Benachrichtigungen</td><td>Anzeige, dass die Übersetzung läuft und das Mikrofon aktiv ist</td></tr>
+    <tr><td>Gerät wach halten</td><td>Verhindert, dass Android die Übersetzung während eines langen Vortrags unterbricht</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Die App greift nicht auf Standort, Kontakte, Kamera, Fotos oder Dateien zu.</p>
+
+<h2>6. Empfänger und Übermittlung in Drittländer</h2>
+<p><strong>Soniox:</strong> Empfänger der Daten für die Übersetzung ist Soniox Inc., 1045 Helm Lane, Foster City, CA 94404, USA. Bei einem Soniox-Projekt in der EU-Region werden Audio und Texte nach Angaben von Soniox nur in der EU verarbeitet; Konto-, Nutzungs- und Abrechnungsdaten Ihres Soniox-Kontos können dennoch in den USA verarbeitet werden, da Soniox seinen Sitz in den USA hat. Bei einem Projekt in der US-Region werden auch Audio und Texte in den USA verarbeitet. Grundlage dafür ist Ihr Vertrag mit Soniox einschließlich des Auftragsverarbeitungsvertrags, den Soniox in der Soniox-Konsole bereitstellt. Die Übermittlung in die USA ist durch die Standardvertragsklauseln der EU-Kommission (Durchführungsbeschluss (EU) 2021/914, Modul 2) abgesichert, die Bestandteil dieses Auftragsverarbeitungsvertrags sind (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie erhalten Sie in der Soniox-Konsole oder auf Anfrage bei uns.</p>
+<p><strong>Google Play:</strong> Die App wird über Google Play vertrieben. Beim Herunterladen verarbeitet Google Daten wie Ihr Google-Konto und Geräteinformationen in eigener Verantwortung. Darauf haben wir keinen Einfluss; es gilt die Datenschutzerklärung von Google: <a href="https://policies.google.com/privacy">https://policies.google.com/privacy</a></p>
+<p><strong>Fehlerberichte:</strong> Einen Fehlerbericht, den Sie uns schicken, übermittelt der Dienst, den Sie im Teilen-Menü wählen (zum Beispiel Ihr E-Mail-Anbieter).</p>
+<p>Wir verkaufen keine Daten und geben sie an keine weiteren Dritten weiter.</p>
+
+<h2>7. Fehlerberichte</h2>
+<p>Die App sendet keine Absturz- oder Diagnosedaten automatisch und enthält keinen Dienst dafür. Unerwartete Fehler werden nur im technischen Protokoll auf Ihrem Gerät vermerkt.</p>
+<p><strong>Fehler melden:</strong> Über „Fehler melden“ in den Einstellungen können Sie uns das technische Protokoll schicken. Dabei öffnet sich das Teilen-Menü von Android, und Sie entscheiden selbst, ob und an wen es geht, zum Beispiel per E-Mail an <a href="mailto:support@jetapps.de">support@jetapps.de</a>. Das Protokoll enthält Zeitangaben, Verbindungsereignisse und Fehlermeldungen, aber kein Audio, keinen Vortragstext und keine Übersetzungen.</p>
+<p>Einen Bericht, den Sie uns senden, und Ihre Absenderangaben nutzen wir nur, um den Fehler zu beheben und Ihnen zu antworten (Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist eine funktionierende App). Wir löschen ihn spätestens 6 Monate nach Abschluss der Bearbeitung.</p>
+<p><strong>Google Play:</strong> Wenn Sie in Android erlaubt haben, Nutzungs- und Diagnosedaten mit Google zu teilen, erhält Google Absturzinformationen der App und stellt uns daraus zusammengefasste Statistiken ohne Personenbezug bereit (Android vitals). Das steuern Sie in den Android-Einstellungen; es gilt die Datenschutzerklärung von Google.</p>
+
+<h2>8. Keine Werbung, kein Tracking, Datensicherheit</h2>
+<p>Die App enthält keine Werbung, keine Analyse- oder Tracking-Dienste und keine Cookies. Absturz- oder Diagnosedaten werden nicht automatisch gesendet. Es gibt kein Nutzerkonto und keine Profilbildung.</p>
+<p>Alle Verbindungen der App sind mit TLS verschlüsselt; unverschlüsselte Verbindungen sind technisch ausgeschlossen. Der API-Schlüssel wird verschlüsselt auf dem Gerät gespeichert.</p>
+
+<h2>9. Ihre Rechte</h2>
+<p>Sie haben nach der DSGVO das Recht auf:</p>
+<ul>
+  <li>Auskunft über Ihre verarbeiteten Daten (Art. 15)</li>
+  <li>Berichtigung unrichtiger Daten (Art. 16)</li>
+  <li>Löschung (Art. 17)</li>
+  <li>Einschränkung der Verarbeitung (Art. 18)</li>
+  <li>Datenübertragbarkeit (Art. 20)</li>
+  <li>Widerspruch gegen die Verarbeitung (Art. 21)</li>
+</ul>
+<p>Wir speichern nur Fehlerberichte, die Sie uns selbst geschickt haben, samt Ihren Absenderangaben. Daten bei Soniox verwalten Sie über Ihr Soniox-Konto oder direkt bei Soniox. Für Anfragen an uns genügt eine E-Mail an <a href="mailto:datenschutz@jetapps.de">datenschutz@jetapps.de</a>.</p>
+<p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren.</p>
+
+<h2>10. Kinder</h2>
+<p>Die App richtet sich an Erwachsene. Sie ist nicht für Kinder unter 16 Jahren bestimmt, und wir verarbeiten wissentlich keine Daten von Kindern.</p>
+
+<h2>11. Änderungen</h2>
+<p>Wir passen diese Datenschutzerklärung an, wenn sich die App oder die Rechtslage ändert, etwa bei Einführung eines kostenpflichtigen Abos. Es gilt die jeweils hier veröffentlichte Fassung; das Datum oben zeigt den Stand.</p>
+
+</main>
+</body>
+</html>
