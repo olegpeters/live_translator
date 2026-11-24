@@ -11,6 +11,9 @@ import 'app_logger.dart';
 class LogReport {
   LogReport._();
 
+  /// Recipient suggested in bug reports (the share sheet cannot preset it).
+  static const supportEmail = 'support@jetapps.de';
+
   /// Writes the log to a temp file and opens the share sheet.
   /// [bugReport] adds a short request to describe the problem.
   /// Returns the file path, or null if the log is empty.
@@ -41,7 +44,8 @@ class LogReport {
         files: files,
         subject: bugReport ? 'Auditorium Fehlerbericht ($fileName)' : 'Auditorium App Log ($fileName)',
         text: bugReport
-            ? 'Fehlerbericht Auditorium. Bitte beschreibe kurz, was passiert ist und wann.\n'
+            ? 'Fehlerbericht Auditorium – bitte an $supportEmail senden.\n'
+                'Beschreibe kurz, was passiert ist und wann.\n'
                 'Das angehängte Protokoll enthält nur technische Ereignisse – kein Audio und keinen Vortragstext.'
             : 'Auditorium Debugging-Protokoll',
       ),

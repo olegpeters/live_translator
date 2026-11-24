@@ -391,9 +391,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.bug_report_outlined),
                     title: const Text('Fehler melden'),
-                    subtitle: const Text(
-                      'Teilt das technische Protokoll (ohne Audio und Vortragstext) per Mail oder Messenger. '
-                      'Du entscheidest, an wen es geht.',
+                    subtitle: Text(
+                      'Schickt das technische Protokoll (ohne Audio und Vortragstext) per Mail an '
+                      '${LogReport.supportEmail}. Du entscheidest im Teilen-Menü, ob und wie es gesendet wird.',
                     ),
                     onTap: _reportBug,
                   ),
