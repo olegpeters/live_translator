@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,7 +109,9 @@ class SettingsRepository {
   }
 
   /// Debug: record the audio sent to STT as WAV (to analyze lost speech).
+  /// Never active in release builds (not declared in the store's data safety form).
   Future<bool> getMicRecording() async {
+    if (kReleaseMode) return false;
     await init();
     return _prefs?.getBool(_keyMicRecording) ?? false;
   }

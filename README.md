@@ -1,17 +1,32 @@
-# live_translator
+# Auditorium
 
-A new Flutter project.
+Android-App (Flutter), die Vorträge, Predigten und Seminare live übersetzt und die Übersetzung
+per Sprachausgabe direkt in die Kopfhörer spricht – auch bei ausgeschaltetem Bildschirm.
 
-## Getting Started
+- Spracherkennung, Übersetzung und Sprachausgabe: [Soniox](https://soniox.com) (Realtime STT + TTS, EU-Endpunkte)
+- Gesprochene Sprache: Deutsch, Englisch oder automatisch
+- Zielsprachen: Russisch, Ukrainisch, Englisch, Spanisch, Französisch
+- Eigenes Glossar für Namen und Fachbegriffe; Glossar für Predigten ist enthalten
 
-This project is a starting point for a Flutter application.
+Für die Nutzung ist ein eigener Soniox-API-Schlüssel nötig, der in den Einstellungen eingetragen
+und verschlüsselt auf dem Gerät gespeichert wird.
 
-A few resources to get you started if this is your first Flutter project:
+## Entwicklung
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```sh
+flutter pub get
+flutter test
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Architektur, Soniox-Protokoll und Audio-Details: siehe [AGENTS.md](AGENTS.md).
+
+## Release (Google Play)
+
+```sh
+flutter build appbundle --release
+```
+
+- Vor jedem Upload die Build-Nummer in `pubspec.yaml` erhöhen (`version: x.y.z+<build>`).
+- Store-Texte: `fastlane/metadata/android/de-DE/`.
+- Debug-Funktionen (Mikrofon-Mitschnitt) sind in Release-Builds deaktiviert.

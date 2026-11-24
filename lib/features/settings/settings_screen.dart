@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/storage/settings_repository.dart';
@@ -339,16 +340,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                     contentPadding: EdgeInsets.zero,
                   ),
-                  SwitchListTile(
-                    title: const Text('Mikrofon-Mitschnitt'),
-                    subtitle: const Text(
-                      'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
-                      'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
+                  // Debug builds only: store builds never record microphone audio.
+                  if (!kReleaseMode)
+                    SwitchListTile(
+                      title: const Text('Mikrofon-Mitschnitt'),
+                      subtitle: const Text(
+                        'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
+                        'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
+                      ),
+                      value: _micRecording,
+                      onChanged: (val) => setState(() => _micRecording = val),
+                      contentPadding: EdgeInsets.zero,
                     ),
-                    value: _micRecording,
-                    onChanged: (val) => setState(() => _micRecording = val),
-                    contentPadding: EdgeInsets.zero,
-                  ),
                   const SizedBox(height: 12),
                   ValueListenableBuilder<int>(
                     valueListenable: AppLogger.logCountNotifier,
