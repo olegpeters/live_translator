@@ -117,7 +117,8 @@ class OnboardTtsService {
           Future.delayed(Duration(milliseconds: timeoutMs)),
         ]);
       } catch (e) {
-        AppLogger.error('Speak error for "$textToSpeak": $e', tag: 'OnboardTtsService');
+        final shown = kReleaseMode ? '${textToSpeak.length} chars' : '"$textToSpeak"';
+        AppLogger.error('Speak error for $shown: $e', tag: 'OnboardTtsService');
       } finally {
         if (!completer.isCompleted) {
           completer.complete();

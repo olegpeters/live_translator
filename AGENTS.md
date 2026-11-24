@@ -13,7 +13,7 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - Config supports `language_hints`, `context` (`terms`, `translation_terms: [{source, target}]`, `general`, `text`), `enable_endpoint_detection`, `max_endpoint_delay_ms` (500–3000).
 - Non-final tokens are re-sent with every response and replace the previous provisional text; final tokens arrive once. Use `TranscriptModel` (final + provisional), never append non-final tokens.
 - `translation_status`: `original` (source), `translation`, `none` (not translated, e.g. already target language / playback echo).
-- Original-language text is not logged (user preference); only token timing (`start_ms`/`end_ms`) for gap diagnostics.
+- Original-language text is not logged (user preference); only token timing (`start_ms`/`end_ms`) for gap diagnostics. Translated text is logged only in debug builds (release: length only), as the privacy policy promises the log holds no transcripts or translations.
 - STT and TTS connections close after ~40 s without client messages; TTS keepalive is `{"keep_alive": true}` (sent every 20 s).
 
 ## 3. Soniox Realtime TTS Protocol (`wss://tts-rt.eu.soniox.com/tts-websocket`)

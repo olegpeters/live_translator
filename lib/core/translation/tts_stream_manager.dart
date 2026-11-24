@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 
 import '../audio/playout_scheduler.dart' show SegmentBoundary;
 import 'translation_segmenter.dart';
@@ -137,7 +138,9 @@ class TtsStreamManager {
 
   void _sendText(_TtsStream stream, String text, bool end) {
     if (text.isEmpty && !end) return;
-    log('Sending text to TTS (${stream.id}): "$text" (textEnd: $end)');
+    // Release builds never log translated text (privacy policy: log holds no translations).
+    final shown = kReleaseMode ? '${text.length} chars' : '"$text"';
+    log('Sending text to TTS (${stream.id}): $shown (textEnd: $end)');
     send({'stream_id': stream.id, 'text': text, 'text_end': end});
   }
 
