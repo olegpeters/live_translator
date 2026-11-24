@@ -1,7 +1,7 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/audio/playout_scheduler.dart';
-import 'package:live_translator/core/translation/translation_segmenter.dart';
+import 'package:auditorium/core/audio/playout_scheduler.dart';
+import 'package:auditorium/core/translation/translation_segmenter.dart';
 
 void main() {
   late List<TextPiece> pieces;

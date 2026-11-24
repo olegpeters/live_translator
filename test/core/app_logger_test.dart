@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/logging/app_logger.dart';
+import 'package:auditorium/core/logging/app_logger.dart';
 
 void main() {
   setUp(() {
@@ -38,7 +38,7 @@ void main() {
     AppLogger.error('Sample event 2', tag: 'Network');
 
     final exportedText = AppLogger.exportFormattedLog();
-    expect(exportedText, contains('Live Translator App Log'));
+    expect(exportedText, contains('Auditorium App Log'));
     expect(exportedText, contains('Total Log Entries: 2'));
     expect(exportedText, contains('[INFO] [Audio] Sample event 1'));
     expect(exportedText, contains('[ERROR] [Network] Sample event 2'));

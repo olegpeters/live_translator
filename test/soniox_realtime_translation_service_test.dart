@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/network/soniox_realtime_translation_service.dart';
-import 'package:live_translator/core/translation/glossary.dart';
+import 'package:auditorium/core/network/soniox_realtime_translation_service.dart';
+import 'package:auditorium/core/translation/glossary.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class FakeWebSocketSink implements WebSocketSink {

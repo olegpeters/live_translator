@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "de.jetapps.live_translator"
+    namespace = "de.jetapps.auditorium"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         // Final: must never change once the app is published on Google Play.
-        applicationId = "de.jetapps.live_translator"
+        applicationId = "de.jetapps.auditorium"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

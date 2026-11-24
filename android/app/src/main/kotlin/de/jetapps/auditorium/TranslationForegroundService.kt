@@ -1,4 +1,4 @@
-package de.jetapps.live_translator
+package de.jetapps.auditorium
 
 import android.app.Notification
 import android.app.NotificationChannel

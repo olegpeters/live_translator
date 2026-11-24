@@ -167,7 +167,7 @@ class AppLogger {
     final now = DateTime.now();
     final buffer = StringBuffer();
     buffer.writeln('==================================================');
-    buffer.writeln('Live Translator App Log');
+    buffer.writeln('Auditorium App Log');
     buffer.writeln('App Launch: ${LogEntry._formatTimestamp(sessionStart)}');
     buffer.writeln('Export Time: ${LogEntry._formatTimestamp(now)}');
     buffer.writeln('Total Log Entries: ${_logs.length}');

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/audio/audio_service.dart';
-import 'package:live_translator/core/storage/settings_repository.dart';
+import 'package:auditorium/core/audio/audio_service.dart';
+import 'package:auditorium/core/storage/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

@@ -85,7 +85,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       final now = DateTime.now();
       final dateStr =
           '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
-      final fileName = 'live_translator_log_$dateStr.txt';
+      final fileName = 'auditorium_log_$dateStr.txt';
 
       final tempDir = await getTemporaryDirectory();
       final filePath = '${tempDir.path}/$fileName';
@@ -103,8 +103,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       }
       final result = await Share.shareXFiles(
         files,
-        subject: 'Live Translator App Log ($fileName)',
-        text: 'Live Translator Debugging-Protokoll',
+        subject: 'Auditorium App Log ($fileName)',
+        text: 'Auditorium Debugging-Protokoll',
       );
 
       if (mounted) {

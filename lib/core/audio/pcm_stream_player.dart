@@ -58,8 +58,8 @@ abstract class PcmOutput {
 
 /// Android implementation backed by `PcmStreamPlayer.kt` (AudioTrack, MODE_STREAM).
 class AndroidPcmStreamPlayer implements PcmOutput {
-  static const _methods = MethodChannel('live_translator/pcm_player');
-  static const _events = EventChannel('live_translator/pcm_player/events');
+  static const _methods = MethodChannel('auditorium/pcm_player');
+  static const _events = EventChannel('auditorium/pcm_player/events');
 
   final _statusController = StreamController<PcmOutputStatus>.broadcast();
   StreamSubscription? _eventSub;

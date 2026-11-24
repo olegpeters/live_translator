@@ -11,7 +11,7 @@ import 'features/translation/translation_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  AppLogger.info('Live Translator gestartet', tag: 'App');
+  AppLogger.info('Auditorium gestartet', tag: 'App');
 
   final settingsRepository = SettingsRepository();
   await settingsRepository.init();

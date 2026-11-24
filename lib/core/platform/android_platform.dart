@@ -5,7 +5,7 @@ import '../logging/app_logger.dart';
 
 /// Android-only platform helpers (no-ops elsewhere).
 class AndroidPlatform {
-  static const _channel = MethodChannel('live_translator/platform');
+  static const _channel = MethodChannel('auditorium/platform');
 
   static bool get isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 

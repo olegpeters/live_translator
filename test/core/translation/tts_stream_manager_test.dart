@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/translation/translation_segmenter.dart';
-import 'package:live_translator/core/translation/tts_stream_manager.dart';
+import 'package:auditorium/core/translation/translation_segmenter.dart';
+import 'package:auditorium/core/translation/tts_stream_manager.dart';
 
 void main() {
   late List<Map<String, dynamic>> sent;

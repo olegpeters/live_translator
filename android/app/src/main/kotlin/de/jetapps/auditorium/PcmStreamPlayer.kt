@@ -1,4 +1,4 @@
-package de.jetapps.live_translator
+package de.jetapps.auditorium
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -21,9 +21,9 @@ import java.util.concurrent.TimeUnit
  * (~0.3–0.5 s). This class writes the PCM continuously into one AudioTrack, so there are no
  * gaps between chunks, and reports the real playback position back to Dart.
  *
- * Method channel `live_translator/pcm_player`:
+ * Method channel `auditorium/pcm_player`:
  *   start({sampleRate}), write({bytes, segmentId}), setSpeed({speed}), flush(), stop()
- * Event channel `live_translator/pcm_player/events` (every ~50 ms while started):
+ * Event channel `auditorium/pcm_player/events` (every ~50 ms while started):
  *   {type: "status", playedFrames, writtenFrames, queuedFrames, speed, segmentId, idle}
  */
 class PcmStreamPlayer(messenger: BinaryMessenger) :
@@ -31,8 +31,8 @@ class PcmStreamPlayer(messenger: BinaryMessenger) :
 
     private class Item(val bytes: ByteArray, val segmentId: String)
 
-    private val methodChannel = MethodChannel(messenger, "live_translator/pcm_player")
-    private val eventChannel = EventChannel(messenger, "live_translator/pcm_player/events")
+    private val methodChannel = MethodChannel(messenger, "auditorium/pcm_player")
+    private val eventChannel = EventChannel(messenger, "auditorium/pcm_player/events")
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val queue = LinkedBlockingQueue<Item>()

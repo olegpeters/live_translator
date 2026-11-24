@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/audio/audio_service.dart';
+import 'package:auditorium/core/audio/audio_service.dart';
 
 void main() {
   group('AudioService helper functions', () {

@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/audio/pcm_stream_player.dart';
-import 'package:live_translator/core/audio/playout_scheduler.dart';
+import 'package:auditorium/core/audio/pcm_stream_player.dart';
+import 'package:auditorium/core/audio/playout_scheduler.dart';
 
 const int rate = 24000;
 

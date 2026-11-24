@@ -1,4 +1,4 @@
-package de.jetapps.live_translator
+package de.jetapps.auditorium
 
 import android.content.Context
 import android.media.AudioDeviceInfo
@@ -15,7 +15,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         pcmPlayer = PcmStreamPlayer(flutterEngine.dartExecutor.binaryMessenger)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "live_translator/platform")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "auditorium/platform")
             .setMethodCallHandler { call, result ->
                 try {
                     when (call.method) {

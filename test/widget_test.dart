@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/audio/audio_service.dart';
-import 'package:live_translator/core/network/soniox_realtime_translation_service.dart';
-import 'package:live_translator/core/storage/settings_repository.dart';
-import 'package:live_translator/main.dart';
+import 'package:auditorium/core/audio/audio_service.dart';
+import 'package:auditorium/core/network/soniox_realtime_translation_service.dart';
+import 'package:auditorium/core/storage/settings_repository.dart';
+import 'package:auditorium/main.dart';
 
 void main() {
   testWidgets('App initializes home screen title test', (WidgetTester tester) async {

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:live_translator/core/translation/glossary.dart';
+import 'package:auditorium/core/translation/glossary.dart';
 
 void main() {
   test('parses terms and translation pairs into Soniox context', () {
