@@ -75,6 +75,10 @@ class TranslationProvider extends ChangeNotifier {
   String? get statusError => _statusError;
 
   int get reconnectAttempt => _reconnectAttempts;
+
+  /// When the current session first went live (kept across reconnects); null when not running.
+  DateTime? get liveSince => _liveSince;
+  DateTime? _liveSince;
   static const int maxReconnectAttempts = 3;
   String get targetTranscript => _targetTranscript.text;
   String get sourceTranscript => _sourceTranscript.text;
@@ -130,6 +134,7 @@ class TranslationProvider extends ChangeNotifier {
           _status = TranslationStatus.connecting;
           break;
         case TranslationConnectionState.connected:
+          _liveSince ??= DateTime.now();
           _status = TranslationStatus.active;
           break;
         case TranslationConnectionState.closing:
@@ -349,6 +354,7 @@ class TranslationProvider extends ChangeNotifier {
 
   Future<void> startTranslation() async {
     _reconnectAttempts = 0;
+    _liveSince = null;
     _isStopping = false;
 
     final apiKey = await settingsRepository.getApiKey();

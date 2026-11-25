@@ -47,7 +47,9 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - Mic voice processing (AEC/NS/AGC) mode `auto`: off with headphones (it suppresses speech during playback even without echo), on with loudspeaker (prevents our own TTS echo from being transcribed).
 
 ## 7. UI
-- **Home:** language selection (spoken → target, locked while translating), start/stop, mic level, translated text.
+- **Home:** language pill (spoken → target, locked while translating), big brand-gradient start/stop button with the
+  mic level as a ring *outside* the button (stays visible while it shows stop), status pill with running time while
+  live, translated text in one uniform style (no fading of older sentences).
   Without an API key the `ApiKeySetup` card sits on top and the translator below is greyed out and read-only;
   the key is checked (region) on OK, saved if accepted, and the region hint stays until "Verstanden".
 - **Debug mode** (settings switch, off by default): shows the TTS buffer/latency card and the technical options

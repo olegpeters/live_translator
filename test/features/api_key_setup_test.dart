@@ -73,9 +73,9 @@ void main() {
     expect(find.text('Soniox-Konto erstellen'), findsOneWidget);
     expect(find.textContaining('Region:'), findsNothing); // region hint only after a valid key
     // translator preview with language selection is shown, but not interactive
-    expect(find.text('Vortrag'), findsOneWidget);
+    expect(find.byTooltip('Vortrag'), findsOneWidget);
     expect(
-      find.ancestor(of: find.text('Vortrag'), matching: find.byType(IgnorePointer)),
+      find.ancestor(of: find.byTooltip('Vortrag'), matching: find.byType(IgnorePointer)),
       findsWidgets,
     );
   });
@@ -93,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Soniox-API-Key eintragen'), findsNothing);
     expect(find.byType(Opacity), findsNothing);
-    expect(find.text('Vortrag'), findsOneWidget);
+    expect(find.byTooltip('Vortrag'), findsOneWidget);
   });
 
   testWidgets('phone size (360x740): setup and translator lay out without overflow', (tester) async {
@@ -121,7 +121,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(l.setupTitle), findsOneWidget);
       expect(find.text(l.setupCreateAccount), findsOneWidget);
-      expect(find.text(l.homeSourceLanguage), findsOneWidget);
+      expect(find.byTooltip(l.homeSourceLanguage), findsOneWidget);
       expect(find.text(l.statusIdle), findsOneWidget);
       expect(find.text(l.langAuto), findsOneWidget); // source language defaults to automatic
       expect(find.text(l.homeTranscriptTitle(l.langRussian)), findsOneWidget);

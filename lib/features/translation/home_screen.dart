@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
 import '../../core/ui/app_theme.dart';
@@ -67,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Auditorium'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_outlined),
             tooltip: AppLocalizations.of(context).settings,
             onPressed: _openSettings,
           ),
@@ -76,78 +80,52 @@ class _HomeScreenState extends State<HomeScreen> {
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : _showSetup
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: ApiKeySetup(
-                            settingsRepository: settingsRepository,
-                            regionDetector: _regionDetector,
-                            onDone: () => setState(() => _showSetup = false),
-                          ),
-                        ),
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ApiKeySetup(
+                        settingsRepository: settingsRepository,
+                        regionDetector: _regionDetector,
+                        onDone: () => setState(() => _showSetup = false),
                       ),
-                      const SizedBox(height: 16),
-                      // Preview of the translator: visible but read-only until a key is set up.
-                      ExcludeSemantics(
-                        child: IgnorePointer(
-                          child: Opacity(opacity: 0.45, child: _buildTranslator(expandTranscript: false)),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildTranslator(expandTranscript: true),
-                ),
+                  const SizedBox(height: 16),
+                  // Preview of the translator: visible but read-only until a key is set up.
+                  ExcludeSemantics(
+                    child: IgnorePointer(
+                      child: Opacity(opacity: 0.45, child: _buildTranslator(expandTranscript: false)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), child: _buildTranslator(expandTranscript: true)),
     );
   }
 
   Widget _buildTranslator({required bool expandTranscript}) {
     return Consumer<TranslationProvider>(
       builder: (context, provider, child) {
-        final l = AppLocalizations.of(context);
         final isTranslating = provider.isTranslating;
-        final transcriptBox = _transcriptBox(provider);
+        final transcript = _transcriptCard(provider);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: expandTranscript ? MainAxisSize.max : MainAxisSize.min,
           children: [
-            _languageRow(enabled: !isTranslating),
-            const SizedBox(height: 12),
-            _statusCard(provider),
-            const SizedBox(height: 12),
-            _levelBar(provider),
-            if (_debugMode && isTranslating) ...[
-              const SizedBox(height: 12),
-              _bufferCard(provider),
-            ],
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    l.homeTranscriptTitle(languageName(l, _targetLanguage)),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (provider.targetTranscript.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear_all, size: 20),
-                    tooltip: l.homeClearText,
-                    onPressed: provider.clearTranscript,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (expandTranscript) Expanded(child: transcriptBox) else SizedBox(height: 160, child: transcriptBox),
+            Center(child: _languagePill(enabled: !isTranslating)),
+            const SizedBox(height: 20),
+            Center(child: _stage(provider)),
+            const SizedBox(height: 14),
+            Center(child: _statusPill(provider)),
+            if (_debugMode && isTranslating) ...[const SizedBox(height: 12), _bufferCard(provider)],
+            const SizedBox(height: 20),
+            if (expandTranscript) Expanded(child: transcript) else SizedBox(height: 200, child: transcript),
             // Debug: source text as recognized by the model
             if (_debugMode && provider.enableSourceTranscription) _sourceTranscriptTile(provider),
           ],
@@ -156,198 +134,266 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Spoken language → translation language. Locked while translating (applies at start).
-  Widget _languageRow({required bool enabled}) {
+  /// "Automatisch → Russisch" as one pill; each half opens its language menu.
+  /// Locked while translating (applies at the next start).
+  Widget _languagePill({required bool enabled}) {
     final l = AppLocalizations.of(context);
-    DropdownButtonFormField<String> dropdown({
-      required String label,
+    final scheme = Theme.of(context).colorScheme;
+
+    Widget half({
+      required String tooltip,
       required String value,
       required List<String> options,
-      required ValueChanged<String> onChanged,
+      required ValueChanged<String> onSelected,
     }) {
-      return DropdownButtonFormField<String>(
+      return PopupMenuButton<String>(
+        tooltip: tooltip,
+        enabled: enabled,
         initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        onSelected: onSelected,
+        position: PopupMenuPosition.under,
+        itemBuilder: (context) => [
+          for (final code in options) PopupMenuItem(value: code, child: Text(languageName(l, code))),
+        ],
+        child: Container(
+          height: 44,
+          constraints: const BoxConstraints(minWidth: 96, maxWidth: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(color: scheme.shadow.withValues(alpha: 0.08), blurRadius: 2, offset: const Offset(0, 1)),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            languageName(l, value),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: scheme.onSurface),
+          ),
         ),
-        items: [for (final code in options) DropdownMenuItem(value: code, child: Text(languageName(l, code)))],
-        onChanged: enabled
-            ? (v) {
-                if (v != null) onChanged(v);
-              }
-            : null,
       );
     }
 
-    return Row(
-      children: [
-        Expanded(
-          child: dropdown(
-            label: l.homeSourceLanguage,
-            value: _sourceLanguage,
-            options: sourceLanguageCodes,
-            onChanged: (code) {
-              setState(() => _sourceLanguage = code);
-              settingsRepository.setSourceLanguage(code);
-            },
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(26)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: half(
+              tooltip: l.homeSourceLanguage,
+              value: _sourceLanguage,
+              options: sourceLanguageCodes,
+              onSelected: (code) {
+                setState(() => _sourceLanguage = code);
+                settingsRepository.setSourceLanguage(code);
+              },
+            ),
           ),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Icon(Icons.arrow_forward),
-        ),
-        Expanded(
-          child: dropdown(
-            label: l.homeTargetLanguage,
-            value: _targetLanguage,
-            options: targetLanguageCodes,
-            onChanged: (code) {
-              setState(() => _targetLanguage = code);
-              settingsRepository.setTargetLanguage(code);
-            },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Icon(Icons.arrow_forward_rounded, size: 20, color: scheme.onSurfaceVariant),
           ),
-        ),
-      ],
+          Flexible(
+            child: half(
+              tooltip: l.homeTargetLanguage,
+              value: _targetLanguage,
+              options: targetLanguageCodes,
+              onSelected: (code) {
+                setState(() => _targetLanguage = code);
+                settingsRepository.setTargetLanguage(code);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Big start/stop button with the microphone level as a ring around it. The ring sits
+  /// outside the button, so the level stays visible while the button shows "stop".
+  Widget _stage(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isTranslating = provider.isTranslating;
+    const ringSize = 208.0;
+    const buttonSize = 156.0;
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Semantics(
+            label: l.homeMicLevel,
+            value: '${(provider.audioLevel * 100).round()} %',
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: provider.audioLevel.clamp(0.0, 1.0)),
+              duration: const Duration(milliseconds: 120),
+              builder: (context, level, _) => CustomPaint(
+                size: const Size.square(ringSize),
+                painter: _LevelRingPainter(level: level, track: scheme.surfaceContainerHighest, clipping: scheme.error),
+              ),
+            ),
+          ),
+          Tooltip(
+            message: isTranslating ? l.homeTapToStop : l.homeTapToStart,
+            child: Semantics(
+              button: true,
+              label: isTranslating ? l.homeTapToStop : l.homeTapToStart,
+              child: GestureDetector(
+                onTap: () {
+                  if (isTranslating) {
+                    provider.stopTranslation();
+                  } else {
+                    provider.startTranslation();
+                  }
+                },
+                child: Container(
+                  width: buttonSize,
+                  height: buttonSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppTheme.brandGradient,
+                    boxShadow: [
+                      BoxShadow(color: AppTheme.violet.withValues(alpha: 0.28), blurRadius: 24, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      isTranslating ? Icons.stop_rounded : Icons.mic_rounded,
+                      key: ValueKey(isTranslating),
+                      color: Colors.white,
+                      size: 64,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _statusText(AppLocalizations l, TranslationProvider provider) => switch (provider.status) {
-        TranslationStatus.idle => l.statusIdle,
-        TranslationStatus.connecting => l.statusConnecting,
-        TranslationStatus.active => l.statusActive,
-        TranslationStatus.finishing => l.statusFinishing,
-        TranslationStatus.connectionError => l.statusConnectionError,
-        TranslationStatus.reconnecting =>
-          l.statusReconnecting(provider.reconnectAttempt, TranslationProvider.maxReconnectAttempts),
-        TranslationStatus.disconnected => l.statusDisconnected,
-        TranslationStatus.checkingKey => l.statusCheckingKey,
-        TranslationStatus.keyRejected => l.statusKeyRejected,
-        TranslationStatus.noApiKey => l.statusNoApiKey,
-        TranslationStatus.initializing => l.statusInitializing,
-        TranslationStatus.startFailed => l.statusStartFailed(provider.statusError ?? ''),
-        TranslationStatus.stopping => l.statusStopping,
-      };
+    TranslationStatus.idle => l.statusIdle,
+    TranslationStatus.connecting => l.statusConnecting,
+    TranslationStatus.active => l.statusActive,
+    TranslationStatus.finishing => l.statusFinishing,
+    TranslationStatus.connectionError => l.statusConnectionError,
+    TranslationStatus.reconnecting => l.statusReconnecting(
+      provider.reconnectAttempt,
+      TranslationProvider.maxReconnectAttempts,
+    ),
+    TranslationStatus.disconnected => l.statusDisconnected,
+    TranslationStatus.checkingKey => l.statusCheckingKey,
+    TranslationStatus.keyRejected => l.statusKeyRejected,
+    TranslationStatus.noApiKey => l.statusNoApiKey,
+    TranslationStatus.initializing => l.statusInitializing,
+    TranslationStatus.startFailed => l.statusStartFailed(provider.statusError ?? ''),
+    TranslationStatus.stopping => l.statusStopping,
+  };
 
-  Widget _statusCard(TranslationProvider provider) {
+  /// Status as a pill: live (with running time), error, or neutral.
+  Widget _statusPill(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final isTranslating = provider.isTranslating;
-    return Card(
-      color: isTranslating ? scheme.primaryContainer : scheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Icon(
-              isTranslating ? Icons.sensors : Icons.sensors_off,
-              color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.homeStatus,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+    final status = provider.status;
+    final live = provider.isTranslating && status == TranslationStatus.active;
+    final error = const {
+      TranslationStatus.connectionError,
+      TranslationStatus.keyRejected,
+      TranslationStatus.noApiKey,
+      TranslationStatus.startFailed,
+    }.contains(status);
+    final (background, foreground, dot) = live
+        ? (scheme.primaryContainer, scheme.onPrimaryContainer, const Color(0xFFE5484D))
+        : error
+        ? (scheme.errorContainer, scheme.onErrorContainer, scheme.error)
+        : (scheme.surfaceContainerHigh, scheme.onSurfaceVariant, scheme.outline);
+    final since = provider.liveSince;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 340),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: live && since != null
+                ? _LiveTimer(
+                    since: since,
+                    builder: (elapsed) => Text(
+                      '${_statusText(l, provider)} · $elapsed',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: foreground),
                     ),
-                  ),
-                  Text(
+                  )
+                : Text(
                     _statusText(l, provider),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurface,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: foreground),
                   ),
-                ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Translation in one uniform, readable style (no fading of older sentences).
+  Widget _transcriptCard(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final empty = provider.targetTranscript.isEmpty;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 8, 8, 16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.homeTranscriptTitle(languageName(l, _targetLanguage)),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                color: scheme.onSurfaceVariant,
+                tooltip: l.homeClearText,
+                onPressed: empty ? null : provider.clearTranscript,
+              ),
+            ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              reverse: true, // Auto-scroll to the newest text
+              padding: const EdgeInsets.only(right: 10),
+              child: Text(
+                empty ? l.homeTranscriptPlaceholder : provider.targetTranscript,
+                style: TextStyle(fontSize: 19, height: 1.45, color: empty ? scheme.onSurfaceVariant : scheme.onSurface),
               ),
             ),
-            const SizedBox(width: 12),
-            _startButton(provider),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Round start/stop button: brand gradient (icon colors) to start, error color to stop.
-  Widget _startButton(TranslationProvider provider) {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final isTranslating = provider.isTranslating;
-    final glow = isTranslating ? scheme.error : AppTheme.violet;
-    return Tooltip(
-      message: isTranslating ? l.homeTapToStop : l.homeTapToStart,
-      child: Semantics(
-        button: true,
-        label: isTranslating ? l.homeTapToStop : l.homeTapToStart,
-        child: GestureDetector(
-          onTap: () {
-            if (isTranslating) {
-              provider.stopTranslation();
-            } else {
-              provider.startTranslation();
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isTranslating ? scheme.error : null,
-              gradient: isTranslating ? null : AppTheme.brandGradient,
-              boxShadow: [
-                BoxShadow(color: glow.withValues(alpha: 0.35), blurRadius: 16, spreadRadius: 2),
-              ],
-            ),
-            child: Icon(
-              isTranslating ? Icons.stop_rounded : Icons.mic_rounded,
-              color: isTranslating ? scheme.onError : Colors.white,
-              size: 38,
-            ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _levelBar(TranslationProvider provider) {
-    final scheme = Theme.of(context).colorScheme;
-    final labelStyle = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
-    final level = provider.audioLevel;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              AppLocalizations.of(context).homeMicLevel,
-              style: labelStyle.copyWith(fontWeight: FontWeight.bold),
-            ),
-            Text('${(level * 100).toInt()}%', style: labelStyle),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: LinearProgressIndicator(
-            value: level,
-            minHeight: 10,
-            backgroundColor: scheme.surfaceContainerHighest,
-            // clipping (very loud) in the error color, otherwise the brand accent
-            valueColor: AlwaysStoppedAnimation<Color>(level > 0.8 ? scheme.error : scheme.primary),
-          ),
-        ),
-      ],
     );
   }
 
@@ -447,42 +493,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _transcriptBox(TranslationProvider provider) {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final empty = provider.targetTranscript.isEmpty;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-      ),
-      child: SingleChildScrollView(
-        reverse: true, // Auto-scroll to bottom on new text
-        child: Text(
-          empty ? l.homeTranscriptPlaceholder : provider.targetTranscript,
-          style: TextStyle(
-            fontSize: 18,
-            height: 1.45,
-            color: empty ? scheme.onSurfaceVariant : scheme.onSurface,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _sourceTranscriptTile(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final empty = provider.sourceTranscript.isEmpty;
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
-      title: Text(
-        l.homeSourceTranscriptTitle,
-        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-      ),
+      title: Text(l.homeSourceTranscriptTitle, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
       children: [
         Container(
           width: double.infinity,
@@ -503,5 +520,86 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+}
+
+/// Microphone level as a ring: track plus a brand-gradient arc from the top, clockwise;
+/// the arc turns to [clipping] when the input is close to overdrive.
+class _LevelRingPainter extends CustomPainter {
+  _LevelRingPainter({required this.level, required this.track, required this.clipping});
+
+  final double level;
+  final Color track;
+  final Color clipping;
+
+  static const stroke = 10.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final arcRect = rect.deflate(stroke / 2);
+    canvas.drawArc(
+      arcRect,
+      0,
+      2 * math.pi,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = track,
+    );
+    if (level <= 0.005) return;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    if (level > 0.8) {
+      paint.color = clipping;
+    } else {
+      paint.shader = const SweepGradient(
+        // ends on cyan again, so the round cap at the arc start does not pick up magenta
+        colors: [AppTheme.cyan, AppTheme.electricBlue, AppTheme.violet, AppTheme.magenta, AppTheme.cyan],
+        stops: [0.0, 0.35, 0.65, 0.92, 1.0],
+        transform: GradientRotation(-math.pi / 2),
+      ).createShader(rect);
+    }
+    canvas.drawArc(arcRect, -math.pi / 2, 2 * math.pi * level, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(_LevelRingPainter old) => old.level != level || old.track != track || old.clipping != clipping;
+}
+
+/// Running time since [since], refreshed every second.
+class _LiveTimer extends StatefulWidget {
+  const _LiveTimer({required this.since, required this.builder});
+
+  final DateTime since;
+  final Widget Function(String elapsed) builder;
+
+  @override
+  State<_LiveTimer> createState() => _LiveTimerState();
+}
+
+class _LiveTimerState extends State<_LiveTimer> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = DateTime.now().difference(widget.since);
+    String two(int v) => v.toString().padLeft(2, '0');
+    return widget.builder('${two(d.inHours)}:${two(d.inMinutes % 60)}:${two(d.inSeconds % 60)}');
   }
 }
