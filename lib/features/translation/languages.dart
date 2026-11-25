@@ -1,7 +1,7 @@
 import '../../l10n/app_localizations.dart';
 
 /// Spoken language of the talk (Soniox `language_hints`); '' = automatic detection.
-const sourceLanguageCodes = ['de', 'en', ''];
+const sourceLanguageCodes = ['', 'de', 'en'];
 
 /// Translation target languages.
 const targetLanguageCodes = ['ru', 'uk', 'en', 'es', 'fr'];

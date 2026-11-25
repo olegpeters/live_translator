@@ -50,6 +50,11 @@ void main() {
       expect(await repository.getEnableSourceTranscription(raw: true), true);
     });
 
+    test('source language defaults to automatic detection', () async {
+      SharedPreferences.setMockInitialValues({});
+      expect(await SettingsRepository().getSourceLanguage(), '');
+    });
+
     test('debug options only take effect in debug mode', () async {
       SharedPreferences.setMockInitialValues({});
       final repository = SettingsRepository();

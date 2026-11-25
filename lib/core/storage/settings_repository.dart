@@ -162,7 +162,7 @@ class SettingsRepository {
   /// Expected spoken language (Soniox `language_hints`); empty = automatic detection.
   Future<String> getSourceLanguage() async {
     await init();
-    return _prefs?.getString(_keySourceLanguage) ?? 'de';
+    return _prefs?.getString(_keySourceLanguage) ?? ''; // default: automatic detection
   }
 
   Future<void> setSourceLanguage(String code) async {

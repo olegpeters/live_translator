@@ -161,14 +161,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     const sectionStyle = TextStyle(fontSize: 18, fontWeight: FontWeight.bold);
     return Scaffold(
       appBar: AppBar(
-        // Save sits top left (back: system back gesture/button, discards changes).
-        automaticallyImplyLeading: false,
-        leadingWidth: 160,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+        // Back (top left) discards changes; save sits top right.
+        title: Text(l.settings),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
               onPressed: _isSaving || _isLoading ? null : _saveSettings,
               icon: _isSaving
@@ -177,8 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: Text(l.save),
             ),
           ),
-        ),
-        title: Text(l.settings),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

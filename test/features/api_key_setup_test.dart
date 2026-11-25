@@ -123,6 +123,7 @@ void main() {
       expect(find.text(l.setupCreateAccount), findsOneWidget);
       expect(find.text(l.homeSourceLanguage), findsOneWidget);
       expect(find.text(l.statusIdle), findsOneWidget);
+      expect(find.text(l.langAuto), findsOneWidget); // source language defaults to automatic
       expect(find.text(l.homeTranscriptTitle(l.langRussian)), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -134,13 +135,23 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final l = lookupAppLocalizations(locale);
-      await tester.pumpWidget(_app(locale: locale, home: SettingsScreen(settingsRepository: repo)));
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(MaterialApp(
+        navigatorKey: navigator,
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(),
+      ));
+      navigator.currentState!.push(MaterialPageRoute(builder: (_) => SettingsScreen(settingsRepository: repo)));
       await tester.pumpAndSettle();
 
       final save = find.text(l.save);
       expect(save, findsOneWidget);
-      expect(tester.getTopLeft(save).dx, lessThan(180)); // top left
+      expect(tester.getTopRight(save).dx, greaterThan(250)); // top right
       expect(tester.getTopLeft(save).dy, lessThan(56));
+      expect(tester.getTopLeft(find.byType(BackButton)).dx, lessThan(60)); // back top left
+
       expect(find.text(l.settingsTtsEngine), findsNothing);
 
       await tester.scrollUntilVisible(find.text(l.settingsDebugMode), 200, scrollable: find.byType(Scrollable).first);

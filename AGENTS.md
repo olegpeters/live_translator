@@ -54,7 +54,8 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
   (TTS engine, mic voice processing, source transcription, mic recording, log viewer). Those options only take
   effect while debug mode is on: `SettingsRepository` getters return defaults otherwise (`raw: true` reads the
   stored value for the settings screen).
-- **Settings:** "Speichern" sits top left in the app bar (system back discards changes).
+- **Settings:** back top left (discards changes), "Speichern" top right in the app bar.
+- **Source language** defaults to automatic detection (no `language_hints`).
 
 ## 8. i18n
 - UI languages: en (template + fallback for unsupported device languages), de, ru, es, fr.

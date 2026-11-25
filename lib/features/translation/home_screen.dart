@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// until the key is checked and the user confirmed the result ("Verstanden").
   bool _showSetup = false;
   bool _debugMode = false;
-  String _sourceLanguage = 'de';
+  String _sourceLanguage = '';
   String _targetLanguage = 'ru';
 
   SettingsRepository get settingsRepository => widget.settingsRepository;
@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loaded = true;
       _showSetup = key == null || key.trim().isEmpty;
       _debugMode = debugMode;
-      _sourceLanguage = sourceLanguageCodes.contains(source) ? source : 'de';
+      _sourceLanguage = sourceLanguageCodes.contains(source) ? source : '';
       _targetLanguage = targetLanguageCodes.contains(target) ? target : 'ru';
     });
   }
