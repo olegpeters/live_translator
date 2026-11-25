@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
+import '../../l10n/app_localizations.dart';
 import '../settings/soniox_region_info.dart';
 
 /// First-run card on the home screen: asks for the Soniox API key, checks it
@@ -57,7 +58,7 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
     if (check == SonioxKeyCheck.invalid) {
       setState(() {
         _checking = false;
-        _error = 'Soniox akzeptiert diesen API-Key nicht. Bitte prüfen.';
+        _error = AppLocalizations.of(context).setupKeyRejected;
       });
       return;
     }
@@ -76,7 +77,7 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
     final opened = await launchUrl(ApiKeySetup.signupUrl, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Link konnte nicht geöffnet werden: ${ApiKeySetup.signupUrl}')),
+        SnackBar(content: Text(AppLocalizations.of(context).setupLinkFailed(ApiKeySetup.signupUrl.toString()))),
       );
     }
   }
@@ -84,6 +85,7 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     final result = _result;
     final done = result != null;
     final region = result?.region;
@@ -91,12 +93,9 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Soniox-API-Key eintragen', style: theme.textTheme.titleLarge),
+        Text(l.setupTitle, style: theme.textTheme.titleLarge),
         const SizedBox(height: 8),
-        const Text(
-          'Auditorium nutzt Soniox für Spracherkennung, Übersetzung und Sprachausgabe. '
-          'Trage deinen API-Key ein, um zu starten.',
-        ),
+        Text(l.setupIntro),
         const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +110,7 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: 'Soniox API-Key',
+                  labelText: l.apiKeyLabel,
                   border: const OutlineInputBorder(),
                   errorText: _error,
                 ),
@@ -136,17 +135,14 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
           if (region != null)
             SonioxRegionInfo(region: region)
           else
-            const Text(
-              'API-Key gespeichert. Er konnte gerade nicht geprüft werden (offline?); '
-              'die Prüfung erfolgt beim Start der Übersetzung.',
-            ),
+            Text(l.setupSavedUnchecked),
           const SizedBox(height: 12),
-          FilledButton(onPressed: widget.onDone, child: const Text('Verstanden')),
+          FilledButton(onPressed: widget.onDone, child: Text(l.understood)),
         ] else
           OutlinedButton.icon(
             onPressed: _openSignup,
             icon: const Icon(Icons.open_in_new),
-            label: const Text('Soniox-Konto erstellen'),
+            label: Text(l.setupCreateAccount),
           ),
       ],
     );

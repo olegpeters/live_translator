@@ -1,0 +1,289 @@
+{
+  "@@locale": "en",
+  "settings": "Settings",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "understood": "Got it",
+  "homeSourceLanguage": "Talk",
+  "homeTargetLanguage": "Translation",
+  "homeStatus": "Status",
+  "homeTapToStart": "Tap to start",
+  "homeTapToStop": "Tap to stop",
+  "homeMicLevel": "Microphone level",
+  "homeTranscriptTitle": "Translation ({language})",
+  "@homeTranscriptTitle": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "homeClearText": "Clear text",
+  "homeTranscriptPlaceholder": "The translated sentences appear here live during the talk...",
+  "homeSourceTranscriptTitle": "Recognized source text – diagnostics",
+  "homeSourceTranscriptPlaceholder": "The original text recognized by the model appears here...",
+  "homeBufferTitle": "TTS audio buffer & sync",
+  "homeBufferTempo": "Tempo: {speed}x",
+  "@homeBufferTempo": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "homeBufferPrerolling": "Buffering: {buffer}s / target: {target}s...",
+  "@homeBufferPrerolling": {
+    "placeholders": {
+      "buffer": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "homeBufferStatus": "Buffer: {buffer}s (target: {target}s)",
+  "@homeBufferStatus": {
+    "placeholders": {
+      "buffer": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "homeBufferReorder": "Order adjusted ({count})",
+  "@homeBufferReorder": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeLatency": "Latency: translation {translation}s  •  TTS {tts}s",
+  "@homeLatency": {
+    "placeholders": {
+      "translation": {
+        "type": "String"
+      },
+      "tts": {
+        "type": "String"
+      }
+    }
+  },
+  "statusIdle": "Inactive",
+  "statusConnecting": "Connecting to Soniox...",
+  "statusActive": "Live translation active",
+  "statusFinishing": "Finishing translation (processing sentences)...",
+  "statusConnectionError": "Connection error",
+  "statusReconnecting": "Connection lost (attempt {attempt}/{max})...",
+  "@statusReconnecting": {
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "statusDisconnected": "Disconnected.",
+  "statusCheckingKey": "Checking API key...",
+  "statusKeyRejected": "Error: Soniox does not accept the API key. Please check it in the settings.",
+  "statusNoApiKey": "Error: no API key in the settings.",
+  "statusInitializing": "Initializing...",
+  "statusStartFailed": "Failed to start: {error}",
+  "@statusStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "statusStopping": "Stopping...",
+  "langGerman": "German",
+  "langEnglish": "English",
+  "langAuto": "Automatic",
+  "langRussian": "Russian",
+  "langUkrainian": "Ukrainian",
+  "langSpanish": "Spanish",
+  "langFrench": "French",
+  "setupTitle": "Enter Soniox API key",
+  "setupIntro": "Auditorium uses Soniox for speech recognition, translation and speech output. Enter your API key to get started.",
+  "apiKeyLabel": "Soniox API key",
+  "setupKeyRejected": "Soniox does not accept this API key. Please check it.",
+  "setupSavedUnchecked": "API key saved. It could not be checked right now (offline?); it will be checked when the translation starts.",
+  "setupCreateAccount": "Create Soniox account",
+  "setupLinkFailed": "Could not open link: {url}",
+  "@setupLinkFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "regionEu": "Region: EU – audio and text are processed in the EU.",
+  "regionUs": "Region: USA – audio and text are processed in the USA.",
+  "regionEuHowTo": "To have them processed in the EU: request the EU region in the Soniox console under “Security & compliance”, create a project in the EU region and use its API key.",
+  "settingsSonioxAccess": "Soniox access",
+  "settingsSpeechOutput": "Speech output",
+  "settingsVoice": "Voice",
+  "voiceMaleDefault": "{name} (male, default)",
+  "@voiceMaleDefault": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceMale": "{name} (male)",
+  "@voiceMale": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceFemale": "{name} (female)",
+  "@voiceFemale": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsGlossary": "Glossary",
+  "settingsGlossaryPreset": "Use glossary preset “Sermon (Adventist)”",
+  "settingsGlossaryPresetHint": "Bible books, names, Adventist terms and Ellen White book titles. Combined with your own glossary; your own entries take precedence.",
+  "settingsOwnGlossary": "Own glossary (names, terms)",
+  "settingsOwnGlossaryHint": "One entry per line, e.g.\nAaron\nAnbetung = поклонение",
+  "settingsOwnGlossaryHelper": "Term = recognition aid; “Source = Target” fixes the translation.",
+  "settingsVolume": "Translation volume",
+  "settingsGain": "Amplification:",
+  "settingsGainHint": "Makes the spoken translation louder (100–300 %). Default: 200 %.",
+  "settingsHelp": "Help",
+  "settingsReportBug": "Report a problem",
+  "settingsReportBugHint": "Sends the technical log (no audio, no talk text) by email to {email}. You decide in the share menu whether and how it is sent.",
+  "@settingsReportBugHint": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsNoLogEntries": "No log entries yet.",
+  "settingsBugReportFailed": "Could not create the bug report: {error}",
+  "@settingsBugReportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDebugMode": "Debug mode",
+  "settingsDebugModeHint": "Shows technical values (buffer, latency) and troubleshooting options. These options only take effect while debug mode is on.",
+  "settingsTtsEngine": "TTS engine (speech output)",
+  "ttsEngineSoniox": "Soniox API (cloud streaming)",
+  "ttsEngineOnboard": "Onboard Android TTS (local)",
+  "settingsVoiceProcessing": "Microphone voice processing",
+  "settingsVoiceProcessingHint": "Echo/noise suppression. Off with headphones (otherwise speech is suppressed during playback), on with the loudspeaker.",
+  "voiceProcessingAuto": "Automatic (by headphones)",
+  "voiceProcessingOn": "Always on",
+  "voiceProcessingOff": "Always off",
+  "settingsSourceTranscription": "Source text transcription",
+  "settingsSourceTranscriptionHint": "Recognizes and shows the original text. Only relevant for debugging/diagnostics. Default: off.",
+  "settingsMicRecording": "Microphone recording",
+  "settingsMicRecordingHint": "Saves the microphone audio of the last session sent to Soniox as WAV. Included in the log export. Diagnostics only.",
+  "settingsAppLogs": "App logs ({count, plural, =1{1 entry} other{{count} entries}})",
+  "@settingsAppLogs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAppLogsHint": "Show the session log since app start, copy it or save it as a .txt file.",
+  "settingsSaved": "Settings saved",
+  "settingsSavedKeyRejected": "Saved, but Soniox does not accept the API key. Please check it.",
+  "settingsSavedUs": "Saved. The API key belongs to a Soniox project in the USA.",
+  "settingsSavedUnchecked": "Saved. The API key could not be checked (offline?); it will be checked at start.",
+  "logsTitle": "App logs ({count})",
+  "@logsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "logsCopyTooltip": "Copy to clipboard",
+  "logsShareTooltip": "Save / share as text file",
+  "logsDeleteTooltip": "Delete log",
+  "logsDeleteTitle": "Delete log?",
+  "logsDeleteConfirm": "Do you really want to delete the current temporary session log?",
+  "logsDeleted": "Log entries deleted.",
+  "logsCopied": "Entire log copied to clipboard.",
+  "logsNothingToSave": "No log entries to save.",
+  "logsExported": "Log file exported",
+  "logsProvided": "Log file available at {path}",
+  "@logsProvided": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "logsSaveFailed": "Could not save the log file: {error}",
+  "@logsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "logsSessionInfo": "Start: {start} • Total: {count, plural, =1{1 entry} other{{count} entries}}",
+  "@logsSessionInfo": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "logsAutoScroll": "Auto-scroll",
+  "logsSearchHint": "Search (text/tag)...",
+  "logsLevel": "Level",
+  "logsAllLevels": "All levels",
+  "logsEmpty": "No log entries since app start.",
+  "logsNoMatch": "No log entries match the filter.",
+  "logsCopyButton": "Copy",
+  "logsSaveButton": "Save log as .txt",
+  "bugReportSubject": "Auditorium bug report ({file})",
+  "@bugReportSubject": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "bugReportText": "Auditorium bug report – please send to {email}.\nBriefly describe what happened and when.\nThe attached log contains only technical events – no audio and no talk text.",
+  "@bugReportText": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "logShareSubject": "Auditorium app log ({file})",
+  "@logShareSubject": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "logShareText": "Auditorium debug log"
+}

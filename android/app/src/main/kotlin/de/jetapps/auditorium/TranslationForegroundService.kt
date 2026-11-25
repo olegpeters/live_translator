@@ -33,7 +33,7 @@ class TranslationForegroundService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Live-Übersetzung", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, getString(R.string.notification_channel_name), NotificationManager.IMPORTANCE_LOW)
             )
         }
         val openApp = PendingIntent.getActivity(
@@ -48,8 +48,8 @@ class TranslationForegroundService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("Auditorium – Übersetzung aktiv")
-            .setContentText("Mikrofon wird übersetzt")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setContentIntent(openApp)

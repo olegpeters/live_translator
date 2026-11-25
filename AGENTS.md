@@ -54,3 +54,12 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
   (TTS engine, mic voice processing, source transcription, mic recording, log viewer). Those options only take
   effect while debug mode is on: `SettingsRepository` getters return defaults otherwise (`raw: true` reads the
   stored value for the settings screen).
+- **Settings:** "Speichern" sits top left in the app bar (system back discards changes).
+
+## 8. i18n
+- UI languages: en (template + fallback for unsupported device languages), de, ru, es, fr.
+- All UI texts live in `lib/l10n/app_<lang>.arb` (gen-l10n, `l10n.yaml`; generated `app_localizations*.dart` next to
+  them). Add every new text to all five ARB files; counts use ICU plurals (Russian needs one/few/many).
+- No user-visible strings in providers/services: `TranslationProvider` exposes `TranslationStatus` (+ error / attempt),
+  the home screen localizes it. `LogReport.share` takes the localized subject/text from the caller.
+- Android notification texts: `android/app/src/main/res/values*/strings.xml`.

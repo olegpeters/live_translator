@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_name">Traduction en direct</string>
+    <string name="notification_title">Auditorium – traduction active</string>
+    <string name="notification_text">Traduction du micro en cours</string>
+</resources>

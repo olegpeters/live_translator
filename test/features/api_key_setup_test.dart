@@ -3,8 +3,10 @@ import 'package:auditorium/core/network/soniox_realtime_translation_service.dart
 import 'package:auditorium/core/network/soniox_region.dart';
 import 'package:auditorium/core/storage/settings_repository.dart';
 import 'package:auditorium/features/translation/api_key_setup.dart';
+import 'package:auditorium/features/settings/settings_screen.dart';
 import 'package:auditorium/features/translation/home_screen.dart';
 import 'package:auditorium/features/translation/translation_provider.dart';
+import 'package:auditorium/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,14 @@ class _FakeDetector extends SonioxRegionDetector {
   }
 }
 
+/// MaterialApp with the app's localizations (German unless [locale] is given).
+MaterialApp _app({required Widget home, Locale locale = const Locale('de')}) => MaterialApp(
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: home,
+    );
+
 void main() {
   late SettingsRepository repo;
 
@@ -32,19 +42,19 @@ void main() {
     repo = SettingsRepository();
   });
 
-  Widget home(_FakeDetector detector) => ChangeNotifierProvider(
+  Widget home(_FakeDetector detector, {Locale locale = const Locale('de')}) => ChangeNotifierProvider(
         create: (_) => TranslationProvider(
           settingsRepository: repo,
           translationService: SonioxRealtimeTranslationService(),
           audioService: AudioService(),
         ),
-        child: MaterialApp(home: HomeScreen(settingsRepository: repo, regionDetector: detector)),
+        child: _app(locale: locale, home: HomeScreen(settingsRepository: repo, regionDetector: detector)),
       );
 
   /// Pumps the setup alone, enters a key and taps OK. Returns a getter for "done".
   Future<bool Function()> submitKey(WidgetTester tester, _FakeDetector detector) async {
     var done = false;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_app(
       home: Scaffold(
         body: ApiKeySetup(settingsRepository: repo, regionDetector: detector, onDone: () => done = true),
       ),
@@ -104,8 +114,45 @@ void main() {
     expect(find.text('Übersetzung (Russisch)'), findsOneWidget);
   });
 
+  for (final locale in AppLocalizations.supportedLocales) {
+    testWidgets('home screen is translated: ${locale.languageCode}', (tester) async {
+      final l = lookupAppLocalizations(locale);
+      await tester.pumpWidget(home(_FakeDetector(SonioxKeyCheck.eu), locale: locale));
+      await tester.pumpAndSettle();
+      expect(find.text(l.setupTitle), findsOneWidget);
+      expect(find.text(l.setupCreateAccount), findsOneWidget);
+      expect(find.text(l.homeSourceLanguage), findsOneWidget);
+      expect(find.text(l.statusIdle), findsOneWidget);
+      expect(find.text(l.homeTranscriptTitle(l.langRussian)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    testWidgets('settings at phone width: ${locale.languageCode}, save top left, debug options', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final l = lookupAppLocalizations(locale);
+      await tester.pumpWidget(_app(locale: locale, home: SettingsScreen(settingsRepository: repo)));
+      await tester.pumpAndSettle();
+
+      final save = find.text(l.save);
+      expect(save, findsOneWidget);
+      expect(tester.getTopLeft(save).dx, lessThan(180)); // top left
+      expect(tester.getTopLeft(save).dy, lessThan(56));
+      expect(find.text(l.settingsTtsEngine), findsNothing);
+
+      await tester.scrollUntilVisible(find.text(l.settingsDebugMode), 200, scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.text(l.settingsDebugMode));
+      await tester.pumpAndSettle();
+      expect(find.text(l.settingsTtsEngine), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('OK is disabled while the field is empty', (tester) async {
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_app(
       home: Scaffold(
         body: ApiKeySetup(settingsRepository: repo, regionDetector: _FakeDetector(SonioxKeyCheck.eu), onDone: () {}),
       ),

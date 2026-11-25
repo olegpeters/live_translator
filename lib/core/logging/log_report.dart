@@ -14,10 +14,12 @@ class LogReport {
   /// Recipient suggested in bug reports (the share sheet cannot preset it).
   static const supportEmail = 'support@jetapps.de';
 
-  /// Writes the log to a temp file and opens the share sheet.
-  /// [bugReport] adds a short request to describe the problem.
-  /// Returns the file path, or null if the log is empty.
-  static Future<(String path, ShareResultStatus status)?> share({bool bugReport = false}) async {
+  /// Writes the log to a temp file and opens the share sheet with the (localized)
+  /// [subject] for the file name and [text]. Returns the file path, or null if the log is empty.
+  static Future<(String path, ShareResultStatus status)?> share({
+    required String Function(String fileName) subject,
+    required String text,
+  }) async {
     if (AppLogger.logs.isEmpty) return null;
 
     final now = DateTime.now();
@@ -42,12 +44,8 @@ class LogReport {
     final result = await SharePlus.instance.share(
       ShareParams(
         files: files,
-        subject: bugReport ? 'Auditorium Fehlerbericht ($fileName)' : 'Auditorium App Log ($fileName)',
-        text: bugReport
-            ? 'Fehlerbericht Auditorium – bitte an $supportEmail senden.\n'
-                'Beschreibe kurz, was passiert ist und wann.\n'
-                'Das angehängte Protokoll enthält nur technische Ereignisse – kein Audio und keinen Vortragstext.'
-            : 'Auditorium Debugging-Protokoll',
+        subject: subject(fileName),
+        text: text,
       ),
     );
     return (file.path, result.status);

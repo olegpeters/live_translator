@@ -1,26 +1,19 @@
-/// Languages offered on the home screen.
-class LanguageOption {
-  const LanguageOption(this.code, this.name);
-
-  final String code;
-  final String name;
-}
+import '../../l10n/app_localizations.dart';
 
 /// Spoken language of the talk (Soniox `language_hints`); '' = automatic detection.
-const sourceLanguages = [
-  LanguageOption('de', 'Deutsch'),
-  LanguageOption('en', 'Englisch'),
-  LanguageOption('', 'Automatisch'),
-];
+const sourceLanguageCodes = ['de', 'en', ''];
 
 /// Translation target languages.
-const targetLanguages = [
-  LanguageOption('ru', 'Russisch'),
-  LanguageOption('uk', 'Ukrainisch'),
-  LanguageOption('en', 'Englisch'),
-  LanguageOption('es', 'Spanisch'),
-  LanguageOption('fr', 'Französisch'),
-];
+const targetLanguageCodes = ['ru', 'uk', 'en', 'es', 'fr'];
 
-String languageName(List<LanguageOption> options, String code) =>
-    options.firstWhere((o) => o.code == code, orElse: () => LanguageOption(code, code)).name;
+/// Localized name of a language code used on the home screen.
+String languageName(AppLocalizations l, String code) => switch (code) {
+      'de' => l.langGerman,
+      'en' => l.langEnglish,
+      'ru' => l.langRussian,
+      'uk' => l.langUkrainian,
+      'es' => l.langSpanish,
+      'fr' => l.langFrench,
+      '' => l.langAuto,
+      _ => code,
+    };

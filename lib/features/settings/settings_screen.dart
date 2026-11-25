@@ -4,6 +4,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_report.dart';
 import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
+import '../../l10n/app_localizations.dart';
 import 'log_viewer_screen.dart';
 import 'soniox_region_info.dart';
 
@@ -34,19 +35,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   SonioxRegion? _region;
   String _savedApiKey = '';
 
-  final List<Map<String, String>> _voices = const [
-    {'id': 'Daniel', 'name': 'Daniel (Männlich, Standard)'},
-    {'id': 'Adrian', 'name': 'Adrian (Männlich)'},
-    {'id': 'Bohdan', 'name': 'Bohdan (Männlich)'},
-    {'id': 'Yana', 'name': 'Yana (Weiblich)'},
-    {'id': 'Arabella', 'name': 'Arabella (Weiblich)'},
-    {'id': 'Grace', 'name': 'Grace (Weiblich)'},
+  /// Soniox voices: (id, female).
+  static const _voices = [
+    ('Daniel', false),
+    ('Adrian', false),
+    ('Bohdan', false),
+    ('Yana', true),
+    ('Arabella', true),
+    ('Grace', true),
   ];
 
-  final List<Map<String, String>> _ttsEngines = const [
-    {'id': 'soniox', 'name': 'Soniox API (Cloud-Streaming)'},
-    {'id': 'onboard', 'name': 'Onboard Android TTS (Lokal)'},
-  ];
+  String _voiceLabel(AppLocalizations l, String id, bool female) {
+    if (female) return l.voiceFemale(id);
+    return id == SettingsRepository.defaultVoice ? l.voiceMaleDefault(id) : l.voiceMale(id);
+  }
 
   @override
   void initState() {
@@ -119,48 +121,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     setState(() => _isSaving = false);
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     switch (check) {
       case SonioxKeyCheck.invalid:
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Gespeichert, aber der API-Key wird von Soniox nicht akzeptiert. Bitte prüfen.'),
-        ));
+        messenger.showSnackBar(SnackBar(content: Text(l.settingsSavedKeyRejected)));
         return; // stay: the key needs fixing
       case SonioxKeyCheck.us:
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Gespeichert. Der API-Key gehört zu einem Soniox-Projekt in den USA.'),
-        ));
+        messenger.showSnackBar(SnackBar(content: Text(l.settingsSavedUs)));
         return; // stay: show the region hint below the key
       case SonioxKeyCheck.unknown:
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Gespeichert. Der API-Key konnte nicht geprüft werden (offline?); Prüfung beim Start.'),
-        ));
+        messenger.showSnackBar(SnackBar(content: Text(l.settingsSavedUnchecked)));
       case SonioxKeyCheck.eu:
       case null:
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Einstellungen erfolgreich gespeichert')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(l.settingsSaved)));
     }
     Navigator.of(context).pop();
   }
 
   Future<void> _reportBug() async {
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final shared = await LogReport.share(bugReport: true);
+      final shared = await LogReport.share(
+        subject: l.bugReportSubject,
+        text: l.bugReportText(LogReport.supportEmail),
+      );
       if (shared == null) {
-        messenger.showSnackBar(const SnackBar(content: Text('Noch keine Protokolleinträge vorhanden.')));
+        messenger.showSnackBar(SnackBar(content: Text(l.settingsNoLogEntries)));
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Fehlerbericht konnte nicht erstellt werden: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.settingsBugReportFailed(e.toString()))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    const sectionStyle = TextStyle(fontSize: 18, fontWeight: FontWeight.bold);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Einstellungen'),
+        // Save sits top left (back: system back gesture/button, discards changes).
+        automaticallyImplyLeading: false,
+        leadingWidth: 160,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _isSaving || _isLoading ? null : _saveSettings,
+              icon: _isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.check),
+              label: Text(l.save),
+            ),
+          ),
+        ),
+        title: Text(l.settings),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -169,17 +187,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Soniox-Zugang',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text(l.settingsSonioxAccess, style: sectionStyle),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _apiKeyController,
                     obscureText: _obscureApiKey,
                     decoration: InputDecoration(
-                      labelText: 'Soniox API Key',
-                      hintText: 'Key...',
+                      labelText: l.apiKeyLabel,
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -200,23 +214,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     SonioxRegionInfo(region: _region!),
                   ],
                   const SizedBox(height: 24),
-                  const Text(
-                    'Sprachausgabe',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text(l.settingsSpeechOutput, style: sectionStyle),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _selectedVoice,
-                    decoration: const InputDecoration(
-                      labelText: 'Stimme',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l.settingsVoice,
+                      border: const OutlineInputBorder(),
                     ),
-                    items: _voices.map((voice) {
-                      return DropdownMenuItem<String>(
-                        value: voice['id'],
-                        child: Text(voice['name']!),
-                      );
-                    }).toList(),
+                    items: [
+                      for (final (id, female) in _voices)
+                        DropdownMenuItem(value: id, child: Text(_voiceLabel(l, id, female))),
+                    ],
                     onChanged: _selectedTtsEngine == 'soniox' || !_debugMode
                         ? (val) {
                             if (val != null) {
@@ -228,18 +238,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : null,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Glossar',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text(l.settingsGlossary, style: sectionStyle),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
-                    title: const Text('Glossar-Preset „Predigt (Adventisten)“ verwenden'),
-                    subtitle: const Text(
-                      'Bibelbücher, Namen, adventistische Begriffe und Ellen-White-Buchtitel. '
-                      'Wird mit dem Freitext-Glossar kombiniert; eigene Einträge haben Vorrang.',
-                    ),
+                    title: Text(l.settingsGlossaryPreset),
+                    subtitle: Text(l.settingsGlossaryPresetHint),
                     value: _useGlossaryPreset,
                     onChanged: (val) => setState(() => _useGlossaryPreset = val ?? false),
                   ),
@@ -248,27 +252,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _glossaryController,
                     minLines: 3,
                     maxLines: 8,
-                    decoration: const InputDecoration(
-                      labelText: 'Eigenes Glossar (Namen, Fachbegriffe)',
+                    decoration: InputDecoration(
+                      labelText: l.settingsOwnGlossary,
                       alignLabelWithHint: true,
-                      hintText: 'Ein Eintrag pro Zeile, z. B.\nAaron\nAnbetung = поклонение',
-                      helperText: 'Begriff = Erkennungshilfe; "Quelle = Ziel" legt die Übersetzung fest.',
-                      border: OutlineInputBorder(),
+                      hintText: l.settingsOwnGlossaryHint,
+                      helperText: l.settingsOwnGlossaryHelper,
+                      helperMaxLines: 2,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Lautstärke der Übersetzung',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text(l.settingsVolume, style: sectionStyle),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Verstärkung:',
-                        style: TextStyle(fontSize: 15),
-                      ),
+                      Text(l.settingsGain, style: const TextStyle(fontSize: 15)),
                       Text(
                         '${(_outputGain * 100).round()}%',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -288,49 +287,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   Text(
-                    'Macht die gesprochene Übersetzung lauter (100–300 %). Standard: 200 %.',
+                    l.settingsGainHint,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Hilfe',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+                  Text(l.settingsHelp, style: sectionStyle),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.bug_report_outlined),
-                    title: const Text('Fehler melden'),
-                    subtitle: Text(
-                      'Schickt das technische Protokoll (ohne Audio und Vortragstext) per Mail an '
-                      '${LogReport.supportEmail}. Du entscheidest im Teilen-Menü, ob und wie es gesendet wird.',
-                    ),
+                    title: Text(l.settingsReportBug),
+                    subtitle: Text(l.settingsReportBugHint(LogReport.supportEmail)),
                     onTap: _reportBug,
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Debug-Modus'),
-                    subtitle: const Text(
-                      'Zeigt technische Werte (Puffer, Latenz) und Optionen zur Fehlersuche. '
-                      'Diese Optionen wirken nur, solange der Debug-Modus an ist.',
-                    ),
+                    title: Text(l.settingsDebugMode),
+                    subtitle: Text(l.settingsDebugModeHint),
                     value: _debugMode,
                     onChanged: (val) => setState(() => _debugMode = val),
                   ),
                   if (_debugMode) ...[
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _selectedTtsEngine,
-                      decoration: const InputDecoration(
-                        labelText: 'TTS Engine (Sprachausgabe)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.settingsTtsEngine,
+                        border: const OutlineInputBorder(),
                       ),
-                      items: _ttsEngines.map((engine) {
-                        return DropdownMenuItem<String>(
-                          value: engine['id'],
-                          child: Text(engine['name']!),
-                        );
-                      }).toList(),
+                      items: [
+                        DropdownMenuItem(value: 'soniox', child: Text(l.ttsEngineSoniox)),
+                        DropdownMenuItem(value: 'onboard', child: Text(l.ttsEngineOnboard)),
+                      ],
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
@@ -341,18 +330,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _voiceProcessingMode,
-                      decoration: const InputDecoration(
-                        labelText: 'Sprachverarbeitung Mikrofon',
-                        helperText: 'Echo-/Rauschunterdrückung. Mit Kopfhörern aus (sonst wird Sprache '
-                            'während der Wiedergabe unterdrückt), mit Lautsprecher an.',
+                      decoration: InputDecoration(
+                        labelText: l.settingsVoiceProcessing,
+                        helperText: l.settingsVoiceProcessingHint,
                         helperMaxLines: 3,
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'auto', child: Text('Automatisch (nach Kopfhörer)')),
-                        DropdownMenuItem(value: 'on', child: Text('Immer an')),
-                        DropdownMenuItem(value: 'off', child: Text('Immer aus')),
+                      items: [
+                        DropdownMenuItem(value: 'auto', child: Text(l.voiceProcessingAuto)),
+                        DropdownMenuItem(value: 'on', child: Text(l.voiceProcessingOn)),
+                        DropdownMenuItem(value: 'off', child: Text(l.voiceProcessingOff)),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _voiceProcessingMode = val);
@@ -360,10 +349,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile(
-                      title: const Text('Quelltext-Transkription (Deutsch)'),
-                      subtitle: const Text(
-                        'Erkennt und zeigt den deutschen Originaltext an. Nur für Debugging/Diagnose relevant. Standard: Deaktiviert.',
-                      ),
+                      title: Text(l.settingsSourceTranscription),
+                      subtitle: Text(l.settingsSourceTranscriptionHint),
                       value: _enableSourceTranscription,
                       onChanged: (val) {
                         setState(() {
@@ -375,11 +362,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // Debug builds only: store builds never record microphone audio.
                     if (!kReleaseMode)
                       SwitchListTile(
-                        title: const Text('Mikrofon-Mitschnitt'),
-                        subtitle: const Text(
-                          'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
-                          'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
-                        ),
+                        title: Text(l.settingsMicRecording),
+                        subtitle: Text(l.settingsMicRecordingHint),
                         value: _micRecording,
                         onChanged: (val) => setState(() => _micRecording = val),
                         contentPadding: EdgeInsets.zero,
@@ -390,10 +374,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.article_outlined),
-                          title: Text('App-Logs / Protokoll ($logCount Einträge)'),
-                          subtitle: const Text(
-                            'Sitzungsprotokoll seit App-Start anzeigen, kopieren oder als .txt Datei auf dem Handy speichern.',
-                          ),
+                          title: Text(l.settingsAppLogs(logCount)),
+                          subtitle: Text(l.settingsAppLogsHint),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.of(context).push(
@@ -407,23 +389,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                   const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveSettings,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
-                            )
-                          : const Text(
-                              'Speichern',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                    ),
-                  ),
                 ],
               ),
             ),

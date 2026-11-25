@@ -8,6 +8,7 @@ import 'core/network/soniox_realtime_translation_service.dart';
 import 'core/storage/settings_repository.dart';
 import 'features/translation/home_screen.dart';
 import 'features/translation/translation_provider.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,12 @@ class MyApp extends StatelessWidget {
       ),
       child: MaterialApp(
         title: 'Auditorium',
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        // English first: it is the fallback for device languages the app does not support.
+        supportedLocales: [
+          const Locale('en'),
+          ...AppLocalizations.supportedLocales.where((l) => l.languageCode != 'en'),
+        ],
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

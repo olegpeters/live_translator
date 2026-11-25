@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart' show ShareResultStatus;
 
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_report.dart';
+import '../../l10n/app_localizations.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -69,21 +70,18 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<void> _saveOrShareLogFile() async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      final shared = await LogReport.share();
-      if (!mounted) return;
+      final shared = await LogReport.share(subject: l.logShareSubject, text: l.logShareText);
       final message = shared == null
-          ? 'Keine Log-Einträge zum Speichern vorhanden.'
+          ? l.logsNothingToSave
           : shared.$2 == ShareResultStatus.success
-              ? 'Log-Datei erfolgreich exportiert'
-              : 'Log-Datei unter ${shared.$1} bereitgestellt';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+              ? l.logsExported
+              : l.logsProvided(shared.$1);
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Speichern der Log-Datei: $e')),
-        );
-      }
+      messenger.showSnackBar(SnackBar(content: Text(l.logsSaveFailed(e.toString()))));
     }
   }
 
@@ -92,26 +90,25 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gesamtes Log in die Zwischenablage kopiert.'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).logsCopied),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
   }
 
   void _clearLogs() {
+    final l = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Log löschen?'),
-        content: const Text(
-          'Möchten Sie das aktuelle temporäre Sitzungsprotokoll wirklich löschen?',
-        ),
+        title: Text(l.logsDeleteTitle),
+        content: Text(l.logsDeleteConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -123,10 +120,10 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               Navigator.of(ctx).pop();
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Log-Einträge gelöscht.')),
+                SnackBar(content: Text(l.logsDeleted)),
               );
             },
-            child: const Text('Löschen'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -151,26 +148,27 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: AppLogger.logCountNotifier,
       builder: (context, count, _) {
+        final l = AppLocalizations.of(context);
         final logs = _filteredLogs;
         final totalCount = AppLogger.logs.length;
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('App-Logs ($totalCount)'),
+            title: Text(l.logsTitle(totalCount)),
             actions: [
               IconButton(
                 icon: const Icon(Icons.copy),
-                tooltip: 'In Zwischenablage kopieren',
+                tooltip: l.logsCopyTooltip,
                 onPressed: logs.isEmpty ? null : _copyToClipboard,
               ),
               IconButton(
                 icon: const Icon(Icons.save_alt),
-                tooltip: 'Als Textdatei speichern / teilen',
+                tooltip: l.logsShareTooltip,
                 onPressed: logs.isEmpty ? null : _saveOrShareLogFile,
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
-                tooltip: 'Log löschen',
+                tooltip: l.logsDeleteTooltip,
                 onPressed: totalCount == 0 ? null : _clearLogs,
               ),
             ],
@@ -187,7 +185,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Start: ${_formatTime(AppLogger.sessionStart)} • Total: $totalCount Einträge',
+                        l.logsSessionInfo(_formatTime(AppLogger.sessionStart), totalCount),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -212,7 +210,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Auto-Scroll',
+                              l.logsAutoScroll,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: _autoScrollToBottom ? Colors.green.shade700 : Colors.grey,
@@ -235,7 +233,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                          hintText: 'Suchen (Text/Tag)...',
+                          hintText: l.logsSearchHint,
                           prefixIcon: const Icon(Icons.search, size: 20),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
@@ -259,12 +257,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     const SizedBox(width: 8),
                     DropdownButton<LogLevel?>(
                       value: _selectedLevelFilter,
-                      hint: const Text('Level'),
+                      hint: Text(l.logsLevel),
                       isDense: true,
                       items: [
-                        const DropdownMenuItem<LogLevel?>(
+                        DropdownMenuItem<LogLevel?>(
                           value: null,
-                          child: Text('Alle Levels'),
+                          child: Text(l.logsAllLevels),
                         ),
                         ...LogLevel.values.map((lvl) {
                           return DropdownMenuItem<LogLevel?>(
@@ -291,8 +289,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     ? Center(
                         child: Text(
                           totalCount == 0
-                              ? 'Keine Log-Einträge seit dem App-Start vorhanden.'
-                              : 'Keine passenden Log-Einträge für Filter gefunden.',
+                              ? l.logsEmpty
+                              : l.logsNoMatch,
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
                       )
@@ -410,7 +408,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: totalCount == 0 ? null : _copyToClipboard,
                         icon: const Icon(Icons.copy, size: 18),
-                        label: const Text('Kopieren'),
+                        label: Text(l.logsCopyButton),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -423,7 +421,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                           foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         ),
                         icon: const Icon(Icons.save_alt, size: 18),
-                        label: const Text('Log als .txt speichern'),
+                        label: Text(l.logsSaveButton),
                       ),
                     ),
                   ],

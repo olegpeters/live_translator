@@ -17,6 +17,23 @@ import '../../core/storage/settings_repository.dart';
 import '../../core/translation/glossary.dart';
 import 'transcript_model.dart';
 
+/// Translation status shown on the home screen (localized there).
+enum TranslationStatus {
+  idle,
+  connecting,
+  active,
+  finishing,
+  connectionError,
+  reconnecting,
+  disconnected,
+  checkingKey,
+  keyRejected,
+  noApiKey,
+  initializing,
+  startFailed,
+  stopping,
+}
+
 class TranslationProvider extends ChangeNotifier {
   final SettingsRepository settingsRepository;
   final SonioxRealtimeTranslationService translationService;
@@ -36,7 +53,8 @@ class TranslationProvider extends ChangeNotifier {
   DateTime _lastStatusNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool _isTranslating = false;
-  String _statusMessage = 'Inaktiv';
+  TranslationStatus _status = TranslationStatus.idle;
+  String? _statusError;
   final TranscriptModel _targetTranscript = TranscriptModel();
   final TranscriptModel _sourceTranscript = TranscriptModel();
   double _audioLevel = 0.0;
@@ -50,7 +68,14 @@ class TranslationProvider extends ChangeNotifier {
   bool _isStopping = false;
 
   bool get isTranslating => _isTranslating;
-  String get statusMessage => _statusMessage;
+  /// Current status; the UI renders it in the user's language.
+  TranslationStatus get status => _status;
+
+  /// Error text for [TranslationStatus.startFailed].
+  String? get statusError => _statusError;
+
+  int get reconnectAttempt => _reconnectAttempts;
+  static const int maxReconnectAttempts = 3;
   String get targetTranscript => _targetTranscript.text;
   String get sourceTranscript => _sourceTranscript.text;
   double get audioLevel => _audioLevel;
@@ -102,20 +127,20 @@ class TranslationProvider extends ChangeNotifier {
       _connectionState = state;
       switch (state) {
         case TranslationConnectionState.connecting:
-          _statusMessage = 'Verbinde mit Soniox...';
+          _status = TranslationStatus.connecting;
           break;
         case TranslationConnectionState.connected:
-          _statusMessage = 'Live Übersetzung aktiv';
+          _status = TranslationStatus.active;
           break;
         case TranslationConnectionState.closing:
-          _statusMessage = 'Beende Übersetzung (Sätze werden verarbeitet)...';
+          _status = TranslationStatus.finishing;
           break;
         case TranslationConnectionState.closed:
         case TranslationConnectionState.disconnected:
           if (_isTranslating && !_isStopping) {
             _handleUnexpectedDisconnect();
           } else {
-            _statusMessage = 'Inaktiv';
+            _status = TranslationStatus.idle;
             _isTranslating = false;
             _enableWakeLock(false);
           }
@@ -124,7 +149,7 @@ class TranslationProvider extends ChangeNotifier {
           if (_isTranslating && !_isStopping) {
             _handleUnexpectedDisconnect();
           } else {
-            _statusMessage = 'Verbindungsfehler';
+            _status = TranslationStatus.connectionError;
             _isTranslating = false;
             _enableWakeLock(false);
           }
@@ -270,9 +295,9 @@ class TranslationProvider extends ChangeNotifier {
   Future<void> _handleUnexpectedDisconnect() async {
     if (!_isTranslating || _isStopping) return;
 
-    if (_reconnectAttempts < 3) {
+    if (_reconnectAttempts < maxReconnectAttempts) {
       _reconnectAttempts++;
-      _statusMessage = 'Verbindung unterbrochen (Versuch $_reconnectAttempts/3)...';
+      _status = TranslationStatus.reconnecting;
       notifyListeners();
 
       await Future.delayed(Duration(seconds: _reconnectAttempts));
@@ -300,7 +325,7 @@ class TranslationProvider extends ChangeNotifier {
       }
     }
 
-    _statusMessage = 'Verbindung getrennt.';
+    _status = TranslationStatus.disconnected;
     await stopTranslation();
   }
 
@@ -309,11 +334,11 @@ class TranslationProvider extends ChangeNotifier {
   Future<SonioxRegion?> _resolveRegion(String apiKey) async {
     final stored = SonioxRegion.fromCode(await settingsRepository.getSonioxRegion());
     if (stored != null) return stored;
-    _statusMessage = 'Prüfe API-Key...';
+    _status = TranslationStatus.checkingKey;
     notifyListeners();
     final check = await regionDetector.detect(apiKey);
     if (check == SonioxKeyCheck.invalid) {
-      _statusMessage = 'Fehler: Der API-Key wird von Soniox nicht akzeptiert. Bitte in den Einstellungen prüfen.';
+      _status = TranslationStatus.keyRejected;
       notifyListeners();
       return null;
     }
@@ -328,7 +353,7 @@ class TranslationProvider extends ChangeNotifier {
 
     final apiKey = await settingsRepository.getApiKey();
     if (apiKey == null || apiKey.trim().isEmpty) {
-      _statusMessage = 'Fehler: Keinen API-Key in den Einstellungen hinterlegt!';
+      _status = TranslationStatus.noApiKey;
       AppLogger.warning('Start translation failed: API key missing', tag: 'TranslationProvider');
       notifyListeners();
       return;
@@ -365,7 +390,7 @@ class TranslationProvider extends ChangeNotifier {
     _sentenceBuffer = '';
     playoutScheduler.reset();
     _isTranslating = true;
-    _statusMessage = 'Initialisiere...';
+    _status = TranslationStatus.initializing;
     notifyListeners();
 
     try {
@@ -398,7 +423,8 @@ class TranslationProvider extends ChangeNotifier {
         _micRecorder?.add(chunk);
       });
     } catch (e) {
-      _statusMessage = 'Fehler beim Starten: ${e.toString()}';
+      _status = TranslationStatus.startFailed;
+      _statusError = e.toString();
       _isTranslating = false;
       await AndroidPlatform.stopForegroundService();
       await _enableWakeLock(false);
@@ -408,7 +434,7 @@ class TranslationProvider extends ChangeNotifier {
 
   Future<void> stopTranslation() async {
     _isStopping = true;
-    _statusMessage = 'Stoppe...';
+    _status = TranslationStatus.stopping;
     notifyListeners();
 
     _sentenceInactivityTimer?.cancel();

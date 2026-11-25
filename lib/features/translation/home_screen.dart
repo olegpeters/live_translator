@@ -6,6 +6,7 @@ import '../settings/settings_screen.dart';
 import 'api_key_setup.dart';
 import 'languages.dart';
 import 'translation_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class HomeScreen extends StatefulWidget {
   final SettingsRepository settingsRepository;
@@ -47,8 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _loaded = true;
       _showSetup = key == null || key.trim().isEmpty;
       _debugMode = debugMode;
-      _sourceLanguage = sourceLanguages.any((l) => l.code == source) ? source : 'de';
-      _targetLanguage = targetLanguages.any((l) => l.code == target) ? target : 'ru';
+      _sourceLanguage = sourceLanguageCodes.contains(source) ? source : 'de';
+      _targetLanguage = targetLanguageCodes.contains(target) ? target : 'ru';
     });
   }
 
@@ -66,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            tooltip: 'Einstellungen',
+            tooltip: AppLocalizations.of(context).settings,
             onPressed: _openSettings,
           ),
         ],
@@ -109,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTranslator({required bool expandTranscript}) {
     return Consumer<TranslationProvider>(
       builder: (context, provider, child) {
+        final l = AppLocalizations.of(context);
         final isTranslating = provider.isTranslating;
         final transcriptBox = _transcriptBox(provider);
         return Column(
@@ -130,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Übersetzung (${languageName(targetLanguages, _targetLanguage)})',
+                    l.homeTranscriptTitle(languageName(l, _targetLanguage)),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -138,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (provider.targetTranscript.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.clear_all, size: 20),
-                    tooltip: 'Text leeren',
+                    tooltip: l.homeClearText,
                     onPressed: provider.clearTranscript,
                   ),
               ],
@@ -155,10 +157,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Spoken language → translation language. Locked while translating (applies at start).
   Widget _languageRow({required bool enabled}) {
+    final l = AppLocalizations.of(context);
     DropdownButtonFormField<String> dropdown({
       required String label,
       required String value,
-      required List<LanguageOption> options,
+      required List<String> options,
       required ValueChanged<String> onChanged,
     }) {
       return DropdownButtonFormField<String>(
@@ -169,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
-        items: [for (final o in options) DropdownMenuItem(value: o.code, child: Text(o.name))],
+        items: [for (final code in options) DropdownMenuItem(value: code, child: Text(languageName(l, code)))],
         onChanged: enabled
             ? (v) {
                 if (v != null) onChanged(v);
@@ -182,9 +185,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Expanded(
           child: dropdown(
-            label: 'Vortrag',
+            label: l.homeSourceLanguage,
             value: _sourceLanguage,
-            options: sourceLanguages,
+            options: sourceLanguageCodes,
             onChanged: (code) {
               setState(() => _sourceLanguage = code);
               settingsRepository.setSourceLanguage(code);
@@ -197,9 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         Expanded(
           child: dropdown(
-            label: 'Übersetzung',
+            label: l.homeTargetLanguage,
             value: _targetLanguage,
-            options: targetLanguages,
+            options: targetLanguageCodes,
             onChanged: (code) {
               setState(() => _targetLanguage = code);
               settingsRepository.setTargetLanguage(code);
@@ -210,7 +213,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _statusText(AppLocalizations l, TranslationProvider provider) => switch (provider.status) {
+        TranslationStatus.idle => l.statusIdle,
+        TranslationStatus.connecting => l.statusConnecting,
+        TranslationStatus.active => l.statusActive,
+        TranslationStatus.finishing => l.statusFinishing,
+        TranslationStatus.connectionError => l.statusConnectionError,
+        TranslationStatus.reconnecting =>
+          l.statusReconnecting(provider.reconnectAttempt, TranslationProvider.maxReconnectAttempts),
+        TranslationStatus.disconnected => l.statusDisconnected,
+        TranslationStatus.checkingKey => l.statusCheckingKey,
+        TranslationStatus.keyRejected => l.statusKeyRejected,
+        TranslationStatus.noApiKey => l.statusNoApiKey,
+        TranslationStatus.initializing => l.statusInitializing,
+        TranslationStatus.startFailed => l.statusStartFailed(provider.statusError ?? ''),
+        TranslationStatus.stopping => l.statusStopping,
+      };
+
   Widget _statusCard(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
     final isTranslating = provider.isTranslating;
     return Card(
       elevation: 2,
@@ -229,9 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Status', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(l.homeStatus, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(
-                    provider.statusMessage,
+                    _statusText(l, provider),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -243,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 12),
             Tooltip(
-              message: isTranslating ? 'Tippen zum Stoppen' : 'Tippen zum Starten',
+              message: isTranslating ? l.homeTapToStop : l.homeTapToStart,
               child: GestureDetector(
                 onTap: () {
                   if (isTranslating) {
@@ -287,9 +308,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Mikrofon-Pegel',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+            Text(
+              AppLocalizations.of(context).homeMicLevel,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
             ),
             Text(
               '${(provider.audioLevel * 100).toInt()}%',
@@ -317,6 +338,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Debug mode: adaptive TTS buffer, playback speed and latencies.
   Widget _bufferCard(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
+    final buffer = provider.phoneBufferSeconds.toStringAsFixed(1);
+    final target = provider.targetDelaySeconds.toStringAsFixed(1);
+    final late = provider.lastLateFragmentDelaySeconds;
     return Card(
       elevation: 1,
       color: Colors.blue.shade50,
@@ -333,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.graphic_eq, size: 20, color: Colors.blue.shade800),
                     const SizedBox(width: 8),
                     Text(
-                      'TTS Audio-Puffer & Sync',
+                      l.homeBufferTitle,
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                     ),
                   ],
@@ -345,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
+                    l.homeBufferTempo(provider.currentPlaybackSpeed.toStringAsFixed(2)),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -361,15 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    provider.isPreRolling
-                        ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
-                        : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
+                    provider.isPreRolling ? l.homeBufferPrerolling(buffer, target) : l.homeBufferStatus(buffer, target),
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
                 if (provider.hasRecentOutOfOrderEvent)
                   Tooltip(
-                    message: 'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
+                    message: l.homeBufferReorder(provider.ttsOutOfOrderEvents),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 8.0),
                       child: Icon(Icons.alt_route, size: 16, color: Colors.orange.shade800),
@@ -395,7 +418,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
+              l.homeLatency(
+                    provider.translationLatencySeconds.toStringAsFixed(2),
+                    provider.ttsLatencySeconds.toStringAsFixed(2),
+                  ) +
+                  (late > 0 ? ' (${late.toStringAsFixed(2)}s)' : ''),
               style: TextStyle(fontSize: 11, color: Colors.blue.shade900, fontWeight: FontWeight.w500),
             ),
           ],
@@ -405,6 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _transcriptBox(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
@@ -417,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
         reverse: true, // Auto-scroll to bottom on new text
         child: Text(
           provider.targetTranscript.isEmpty
-              ? 'Die übersetzten Sätze erscheinen hier live während des Vortrags...'
+              ? l.homeTranscriptPlaceholder
               : provider.targetTranscript,
           style: TextStyle(
             fontSize: 18,
@@ -430,11 +458,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _sourceTranscriptTile(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
-      title: const Text(
-        'Erkannter Quelltext – Diagnose',
-        style: TextStyle(fontSize: 13, color: Colors.grey),
+      title: Text(
+        l.homeSourceTranscriptTitle,
+        style: const TextStyle(fontSize: 13, color: Colors.grey),
       ),
       children: [
         Container(
@@ -450,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
             reverse: true,
             child: Text(
               provider.sourceTranscript.isEmpty
-                  ? 'Hier erscheint der vom Modell erkannte Originaltext...'
+                  ? l.homeSourceTranscriptPlaceholder
                   : provider.sourceTranscript,
               style: TextStyle(
                 fontSize: 14,
