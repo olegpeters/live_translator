@@ -208,7 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   if (_region != null) ...[
                     const SizedBox(height: 8),
-                    SonioxRegionInfo(region: _region),
+                    SonioxRegionInfo(region: _region!),
                   ],
                   const SizedBox(height: 24),
                   const Text(

@@ -144,8 +144,6 @@ class _ApiKeySetupState extends State<ApiKeySetup> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const SonioxRegionInfo(region: null),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _openSignup,

@@ -49,7 +49,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Soniox-API-Key eintragen'), findsOneWidget);
     expect(find.text('Soniox-Konto erstellen'), findsOneWidget);
-    expect(find.textContaining('standardmäßig in der US-Region'), findsOneWidget);
+    expect(find.textContaining('Region:'), findsNothing); // region hint only after a valid key
   });
 
   testWidgets('OK is disabled while the field is empty', (tester) async {

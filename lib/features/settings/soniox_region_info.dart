@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/soniox_region.dart';
 
-/// Where Soniox processes audio and text for the given region, with the steps
-/// to get EU processing for US projects. [region] null = general hint before a key is checked.
+/// Where Soniox processes audio and text for a checked API key's region, with the steps
+/// to get EU processing for US projects. Shown only once a key is known to be valid.
 class SonioxRegionInfo extends StatelessWidget {
   const SonioxRegionInfo({super.key, required this.region});
 
-  final SonioxRegion? region;
+  final SonioxRegion region;
 
   static const _euHowTo = 'Für Verarbeitung in der EU: in der Soniox-Konsole unter „Security & compliance“ '
       'die EU-Region beantragen, ein Projekt in der EU-Region anlegen und dessen API-Key verwenden.';
@@ -25,12 +25,6 @@ class SonioxRegionInfo extends StatelessWidget {
           Icons.public,
           scheme.tertiaryContainer,
           'Region: USA – Audio und Texte werden in den USA verarbeitet. $_euHowTo',
-        ),
-      null => (
-          Icons.info_outline,
-          scheme.surfaceContainerHighest,
-          'Soniox-Projekte liegen standardmäßig in der US-Region; Audio und Texte werden dann in den USA '
-              'verarbeitet. $_euHowTo',
         ),
     };
     return Container(
