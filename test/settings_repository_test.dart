@@ -47,7 +47,27 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final repository = SettingsRepository();
       await repository.setEnableSourceTranscription(true);
+      expect(await repository.getEnableSourceTranscription(raw: true), true);
+    });
+
+    test('debug options only take effect in debug mode', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      await repository.setEnableSourceTranscription(true);
+      await repository.setTtsEngine('onboard');
+      await repository.setVoiceProcessingMode('off');
+
+      expect(await repository.getDebugMode(), false);
+      expect(await repository.getEnableSourceTranscription(), false);
+      expect(await repository.getTtsEngine(), 'soniox');
+      expect(await repository.getVoiceProcessingMode(), 'auto');
+      // stored values are kept for the settings screen
+      expect(await repository.getTtsEngine(raw: true), 'onboard');
+
+      await repository.setDebugMode(true);
       expect(await repository.getEnableSourceTranscription(), true);
+      expect(await repository.getTtsEngine(), 'onboard');
+      expect(await repository.getVoiceProcessingMode(), 'off');
     });
   });
 }

@@ -18,6 +18,7 @@ class SettingsRepository {
   static const String _keyGlossary = 'glossary';
   static const String _keyUseGlossaryPreset = 'use_glossary_preset';
   static const String _keySonioxRegion = 'soniox_region';
+  static const String _keyDebugMode = 'debug_mode';
 
   /// Bundled glossary preset (sermon context, Seventh-day Adventist church).
   static const String glossaryPresetAsset = 'assets/glossary/adventist_sermon.txt';
@@ -96,8 +97,25 @@ class SettingsRepository {
     await _prefs?.setDouble(_keyOutputGain, gain);
   }
 
-  Future<bool> getEnableSourceTranscription() async {
+  /// Debug mode shows technical values and options. The options below marked
+  /// "debug option" only take effect while it is on; [raw] reads the stored value
+  /// regardless (settings screen).
+  Future<bool> getDebugMode() async {
     await init();
+    return _prefs?.getBool(_keyDebugMode) ?? false;
+  }
+
+  Future<void> setDebugMode(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keyDebugMode, enabled);
+  }
+
+  Future<bool> _debugOptionsActive(bool raw) async => raw || await getDebugMode();
+
+  /// Debug option (default off).
+  Future<bool> getEnableSourceTranscription({bool raw = false}) async {
+    await init();
+    if (!await _debugOptionsActive(raw)) return false;
     return _prefs?.getBool(_keyEnableSourceTranscription) ?? false;
   }
 
@@ -109,8 +127,10 @@ class SettingsRepository {
   /// Android/OS voice processing (echo cancel, noise suppression, auto gain) on mic input:
   /// 'auto' (off with headphones, on with loudspeaker), 'on' or 'off'.
   /// Needed against echo in loudspeaker mode; with headphones it can suppress speech during playback.
-  Future<String> getVoiceProcessingMode() async {
+  /// Debug option (default 'auto').
+  Future<String> getVoiceProcessingMode({bool raw = false}) async {
     await init();
+    if (!await _debugOptionsActive(raw)) return 'auto';
     final mode = _prefs?.getString(_keyVoiceProcessingMode);
     if (mode != null) return mode;
     // Migrate the former on/off switch if it was set explicitly.
@@ -126,9 +146,11 @@ class SettingsRepository {
 
   /// Debug: record the audio sent to STT as WAV (to analyze lost speech).
   /// Never active in release builds (not declared in the store's data safety form).
-  Future<bool> getMicRecording() async {
+  /// Debug option (default off).
+  Future<bool> getMicRecording({bool raw = false}) async {
     if (kReleaseMode) return false;
     await init();
+    if (!await _debugOptionsActive(raw)) return false;
     return _prefs?.getBool(_keyMicRecording) ?? false;
   }
 
@@ -170,8 +192,10 @@ class SettingsRepository {
     await _prefs?.setBool(_keyUseGlossaryPreset, enabled);
   }
 
-  Future<String> getTtsEngine() async {
+  /// Debug option (default 'soniox').
+  Future<String> getTtsEngine({bool raw = false}) async {
     await init();
+    if (!await _debugOptionsActive(raw)) return 'soniox';
     return _prefs?.getString(_keyTtsEngine) ?? 'soniox';
   }
 

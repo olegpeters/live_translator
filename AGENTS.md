@@ -45,3 +45,12 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - **Bluetooth:** recording uses `AndroidRecordConfig(manageBluetooth: false)` and `audioRouteChange: follow`. The `record` plugin otherwise switches a BT headset into its call profile (SCO/HFP, `setCommunicationDevice`), which conflicts with A2DP media playback: the headset mic goes silent or capture pauses whenever TTS plays. Input comes from the phone mic, output stays A2DP.
 - Don't apply the `audioplayers` global `AudioContext` on Android (it sets speakerphone / audio mode system-wide); TTS plays via the native AudioTrack there.
 - Mic voice processing (AEC/NS/AGC) mode `auto`: off with headphones (it suppresses speech during playback even without echo), on with loudspeaker (prevents our own TTS echo from being transcribed).
+
+## 7. UI
+- **Home:** language selection (spoken → target, locked while translating), start/stop, mic level, translated text.
+  Without an API key the `ApiKeySetup` card sits on top and the translator below is greyed out and read-only;
+  the key is checked (region) on OK, saved if accepted, and the region hint stays until "Verstanden".
+- **Debug mode** (settings switch, off by default): shows the TTS buffer/latency card and the technical options
+  (TTS engine, mic voice processing, source transcription, mic recording, log viewer). Those options only take
+  effect while debug mode is on: `SettingsRepository` getters return defaults otherwise (`raw: true` reads the
+  stored value for the settings screen).

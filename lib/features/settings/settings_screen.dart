@@ -19,14 +19,13 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
-  String _selectedLanguage = 'ru';
   String _selectedVoice = SettingsRepository.defaultVoice;
   String _selectedTtsEngine = 'soniox';
   double _outputGain = SettingsRepository.defaultOutputGain;
   bool _enableSourceTranscription = false;
   String _voiceProcessingMode = 'auto';
   bool _micRecording = false;
-  String _sourceLanguage = 'de';
+  bool _debugMode = false;
   final _glossaryController = TextEditingController();
   bool _useGlossaryPreset = true;
   bool _isLoading = true;
@@ -34,14 +33,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _regionDetector = SonioxRegionDetector();
   SonioxRegion? _region;
   String _savedApiKey = '';
-
-  final List<Map<String, String>> _languages = const [
-    {'code': 'ru', 'name': 'Russisch (ru)'},
-    {'code': 'en', 'name': 'Englisch (en)'},
-    {'code': 'es', 'name': 'Spanisch (es)'},
-    {'code': 'fr', 'name': 'Französisch (fr)'},
-    {'code': 'uk', 'name': 'Ukrainisch (uk)'},
-  ];
 
   final List<Map<String, String>> _voices = const [
     {'id': 'Daniel', 'name': 'Daniel (Männlich, Standard)'},
@@ -65,15 +56,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final apiKey = await widget.settingsRepository.getApiKey();
-    final language = await widget.settingsRepository.getTargetLanguage();
     final voice = await widget.settingsRepository.getVoice();
-    final ttsEngine = await widget.settingsRepository.getTtsEngine();
+    final debugMode = await widget.settingsRepository.getDebugMode();
+    // Debug options: show the stored values even while debug mode is off.
+    final ttsEngine = await widget.settingsRepository.getTtsEngine(raw: true);
     final gain = await widget.settingsRepository.getOutputGain();
     final enableSourceTranscription =
-        await widget.settingsRepository.getEnableSourceTranscription();
-    final voiceProcessingMode = await widget.settingsRepository.getVoiceProcessingMode();
-    final micRecording = await widget.settingsRepository.getMicRecording();
-    final sourceLanguage = await widget.settingsRepository.getSourceLanguage();
+        await widget.settingsRepository.getEnableSourceTranscription(raw: true);
+    final voiceProcessingMode = await widget.settingsRepository.getVoiceProcessingMode(raw: true);
+    final micRecording = await widget.settingsRepository.getMicRecording(raw: true);
     final glossary = await widget.settingsRepository.getGlossary();
     final useGlossaryPreset = await widget.settingsRepository.getUseGlossaryPreset();
     final region = SonioxRegion.fromCode(await widget.settingsRepository.getSonioxRegion());
@@ -84,14 +75,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _savedApiKey = apiKey.trim();
       }
       _region = region;
-      _selectedLanguage = language;
+      _debugMode = debugMode;
       _selectedVoice = voice;
       _selectedTtsEngine = ttsEngine;
       _outputGain = gain;
       _enableSourceTranscription = enableSourceTranscription;
       _voiceProcessingMode = voiceProcessingMode;
       _micRecording = micRecording;
-      _sourceLanguage = sourceLanguage;
       _glossaryController.text = glossary;
       _useGlossaryPreset = useGlossaryPreset;
       _isLoading = false;
@@ -102,13 +92,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isSaving = true);
     final apiKey = _apiKeyController.text.trim();
     await widget.settingsRepository.setApiKey(apiKey);
-    await widget.settingsRepository.setTargetLanguage(_selectedLanguage);
+    await widget.settingsRepository.setDebugMode(_debugMode);
     await widget.settingsRepository.setVoice(_selectedVoice);
     await widget.settingsRepository.setTtsEngine(_selectedTtsEngine);
     await widget.settingsRepository.setOutputGain(_outputGain);
     await widget.settingsRepository.setVoiceProcessingMode(_voiceProcessingMode);
     await widget.settingsRepository.setMicRecording(_micRecording);
-    await widget.settingsRepository.setSourceLanguage(_sourceLanguage);
     await widget.settingsRepository.setGlossary(_glossaryController.text);
     await widget.settingsRepository.setUseGlossaryPreset(_useGlossaryPreset);
     await widget.settingsRepository
@@ -181,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Soniox API Konfiguration',
+                    'Soniox-Zugang',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
@@ -212,51 +201,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                   const SizedBox(height: 24),
                   const Text(
-                    'Übersetzungs-Einstellungen',
+                    'Sprachausgabe',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: _sourceLanguage,
-                    decoration: const InputDecoration(
-                      labelText: 'Gesprochene Sprache (Quelle)',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'de', child: Text('Deutsch (de)')),
-                      DropdownMenuItem(value: 'en', child: Text('Englisch (en)')),
-                      DropdownMenuItem(value: '', child: Text('Automatisch erkennen')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _sourceLanguage = val);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedLanguage,
-                    decoration: const InputDecoration(
-                      labelText: 'Zielsprache',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _languages.map((lang) {
-                      return DropdownMenuItem<String>(
-                        value: lang['code'],
-                        child: Text(lang['name']!),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedLanguage = val;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
                     initialValue: _selectedVoice,
                     decoration: const InputDecoration(
-                      labelText: 'Soniox Stimme (TTS Voice)',
+                      labelText: 'Stimme',
                       border: OutlineInputBorder(),
                     ),
                     items: _voices.map((voice) {
@@ -265,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Text(voice['name']!),
                       );
                     }).toList(),
-                    onChanged: _selectedTtsEngine == 'soniox'
+                    onChanged: _selectedTtsEngine == 'soniox' || !_debugMode
                         ? (val) {
                             if (val != null) {
                               setState(() {
@@ -275,28 +227,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedTtsEngine,
-                    decoration: const InputDecoration(
-                      labelText: 'TTS Engine (Sprachausgabe)',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _ttsEngines.map((engine) {
-                      return DropdownMenuItem<String>(
-                        value: engine['id'],
-                        child: Text(engine['name']!),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedTtsEngine = val;
-                        });
-                      }
-                    },
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Glossar',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
@@ -323,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Ausgabelautstärke / Audio-Verstärkung',
+                    'Lautstärke der Übersetzung',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -331,11 +266,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Verstärkungsfaktor:',
+                        'Verstärkung:',
                         style: TextStyle(fontSize: 15),
                       ),
                       Text(
-                        '${(_outputGain * 100).round()}% (${_outputGain == 1.0 ? 'Standard' : (_outputGain == 2.0 ? '2x Boost' : '${_outputGain.toStringAsFixed(1)}x')})',
+                        '${(_outputGain * 100).round()}%',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                     ],
@@ -353,80 +288,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   Text(
-                    'Erhöht die digitale Lautstärke der gesprochenen Übersetzung (100% - 300%). Standard ist 200%.',
+                    'Macht die gesprochene Übersetzung lauter (100–300 %). Standard: 200 %.',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _voiceProcessingMode,
-                    decoration: const InputDecoration(
-                      labelText: 'Sprachverarbeitung Mikrofon',
-                      helperText: 'Echo-/Rauschunterdrückung. Mit Kopfhörern aus (sonst wird Sprache '
-                          'während der Wiedergabe unterdrückt), mit Lautsprecher an.',
-                      helperMaxLines: 3,
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'auto', child: Text('Automatisch (nach Kopfhörer)')),
-                      DropdownMenuItem(value: 'on', child: Text('Immer an')),
-                      DropdownMenuItem(value: 'off', child: Text('Immer aus')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _voiceProcessingMode = val);
-                    },
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Diagnose & Debugging',
+                    'Hilfe',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    title: const Text('Quelltext-Transkription (Deutsch)'),
-                    subtitle: const Text(
-                      'Erkennt und zeigt den deutschen Originaltext an. Nur für Debugging/Diagnose relevant. Standard: Deaktiviert.',
-                    ),
-                    value: _enableSourceTranscription,
-                    onChanged: (val) {
-                      setState(() {
-                        _enableSourceTranscription = val;
-                      });
-                    },
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  // Debug builds only: store builds never record microphone audio.
-                  if (!kReleaseMode)
-                    SwitchListTile(
-                      title: const Text('Mikrofon-Mitschnitt'),
-                      subtitle: const Text(
-                        'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
-                        'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
-                      ),
-                      value: _micRecording,
-                      onChanged: (val) => setState(() => _micRecording = val),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  const SizedBox(height: 12),
-                  ValueListenableBuilder<int>(
-                    valueListenable: AppLogger.logCountNotifier,
-                    builder: (context, logCount, _) {
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.article_outlined),
-                        title: Text('App-Logs / Protokoll ($logCount Einträge)'),
-                        subtitle: const Text(
-                          'Sitzungsprotokoll seit App-Start anzeigen, kopieren oder als .txt Datei auf dem Handy speichern.',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LogViewerScreen(),
-                            ),
-                          );
-                        },
-                      );
-                    },
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -438,6 +306,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     onTap: _reportBug,
                   ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Debug-Modus'),
+                    subtitle: const Text(
+                      'Zeigt technische Werte (Puffer, Latenz) und Optionen zur Fehlersuche. '
+                      'Diese Optionen wirken nur, solange der Debug-Modus an ist.',
+                    ),
+                    value: _debugMode,
+                    onChanged: (val) => setState(() => _debugMode = val),
+                  ),
+                  if (_debugMode) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedTtsEngine,
+                      decoration: const InputDecoration(
+                        labelText: 'TTS Engine (Sprachausgabe)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _ttsEngines.map((engine) {
+                        return DropdownMenuItem<String>(
+                          value: engine['id'],
+                          child: Text(engine['name']!),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedTtsEngine = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _voiceProcessingMode,
+                      decoration: const InputDecoration(
+                        labelText: 'Sprachverarbeitung Mikrofon',
+                        helperText: 'Echo-/Rauschunterdrückung. Mit Kopfhörern aus (sonst wird Sprache '
+                            'während der Wiedergabe unterdrückt), mit Lautsprecher an.',
+                        helperMaxLines: 3,
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'auto', child: Text('Automatisch (nach Kopfhörer)')),
+                        DropdownMenuItem(value: 'on', child: Text('Immer an')),
+                        DropdownMenuItem(value: 'off', child: Text('Immer aus')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _voiceProcessingMode = val);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('Quelltext-Transkription (Deutsch)'),
+                      subtitle: const Text(
+                        'Erkennt und zeigt den deutschen Originaltext an. Nur für Debugging/Diagnose relevant. Standard: Deaktiviert.',
+                      ),
+                      value: _enableSourceTranscription,
+                      onChanged: (val) {
+                        setState(() {
+                          _enableSourceTranscription = val;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    // Debug builds only: store builds never record microphone audio.
+                    if (!kReleaseMode)
+                      SwitchListTile(
+                        title: const Text('Mikrofon-Mitschnitt'),
+                        subtitle: const Text(
+                          'Speichert das an Soniox gesendete Mikrofon-Audio der letzten Sitzung als WAV. '
+                          'Wird beim Log-Export mitgeteilt. Nur zur Diagnose.',
+                        ),
+                        value: _micRecording,
+                        onChanged: (val) => setState(() => _micRecording = val),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: AppLogger.logCountNotifier,
+                      builder: (context, logCount, _) {
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.article_outlined),
+                          title: Text('App-Logs / Protokoll ($logCount Einträge)'),
+                          subtitle: const Text(
+                            'Sitzungsprotokoll seit App-Start anzeigen, kopieren oder als .txt Datei auf dem Handy speichern.',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const LogViewerScreen(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
