@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
 import '../settings/settings_screen.dart';
+import 'api_key_setup.dart';
 import 'translation_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final SettingsRepository settingsRepository;
+  final SonioxRegionDetector? regionDetector;
 
-  const HomeScreen({super.key, required this.settingsRepository});
+  const HomeScreen({super.key, required this.settingsRepository, this.regionDetector});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final SonioxRegionDetector _regionDetector = widget.regionDetector ?? SonioxRegionDetector();
+
+  /// null while loading; false shows the API key setup instead of the translator.
+  bool? _hasApiKey;
+
+  SettingsRepository get settingsRepository => widget.settingsRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKeyState();
+  }
+
+  Future<void> _loadApiKeyState() async {
+    final key = await settingsRepository.getApiKey();
+    if (mounted) setState(() => _hasApiKey = key != null && key.trim().isNotEmpty);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,369 +45,383 @@ class HomeScreen extends StatelessWidget {
             icon: const Icon(Icons.settings),
             tooltip: 'Einstellungen',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => SettingsScreen(
-                    settingsRepository: settingsRepository,
-                  ),
-                ),
-              );
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(
+                      builder: (context) => SettingsScreen(
+                        settingsRepository: settingsRepository,
+                      ),
+                    ),
+                  )
+                  .then((_) => _loadApiKeyState()); // the key may have been removed
             },
           ),
         ],
       ),
-      body: Consumer<TranslationProvider>(
-        builder: (context, provider, child) {
-          final isTranslating = provider.isTranslating;
+      body: switch (_hasApiKey) {
+        null => const Center(child: CircularProgressIndicator()),
+        false => ApiKeySetup(
+            settingsRepository: settingsRepository,
+            regionDetector: _regionDetector,
+            onSaved: () => setState(() => _hasApiKey = true),
+          ),
+        true => _buildTranslator(),
+      },
+    );
+  }
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                // Status Card
-                Card(
-                  elevation: 2,
-                  color: isTranslating
-                      ? Colors.green.shade50
-                      : Colors.grey.shade100,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isTranslating
-                              ? Icons.sensors
-                              : Icons.sensors_off,
-                          color: isTranslating ? Colors.green : Colors.grey,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Status',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                provider.statusMessage,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: isTranslating
-                                      ? Colors.green.shade900
-                                      : Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Tooltip(
-                          message: isTranslating
-                              ? 'Tippen zum Stoppen'
-                              : 'Tippen zum Starten',
-                          child: GestureDetector(
-                            onTap: () {
-                              if (isTranslating) {
-                                provider.stopTranslation();
-                              } else {
-                                provider.startTranslation();
-                              }
-                            },
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isTranslating ? Colors.red : Colors.deepPurple,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: (isTranslating ? Colors.red : Colors.deepPurple)
-                                        .withValues(alpha: 0.4),
-                                    blurRadius: 12,
-                                    spreadRadius: 3,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                isTranslating ? Icons.stop : Icons.mic,
-                                color: Colors.white,
-                                size: 36,
+  Widget _buildTranslator() {
+    return Consumer<TranslationProvider>(
+      builder: (context, provider, child) {
+        final isTranslating = provider.isTranslating;
+
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              // Status Card
+              Card(
+                elevation: 2,
+                color: isTranslating
+                    ? Colors.green.shade50
+                    : Colors.grey.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isTranslating
+                            ? Icons.sensors
+                            : Icons.sensors_off,
+                        color: isTranslating ? Colors.green : Colors.grey,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Status',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Audio Level Indicator (Input Volume Bar)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Eingangssignal (Mischpult / USB):',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        Text(
-                          '${(provider.audioLevel * 100).toInt()}%',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: provider.audioLevel,
-                        minHeight: 10,
-                        backgroundColor: Colors.grey.shade300,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          provider.audioLevel > 0.8
-                              ? Colors.red
-                              : (provider.audioLevel > 0.4
-                                  ? Colors.orange
-                                  : Colors.blue),
+                            Text(
+                              provider.statusMessage,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isTranslating
+                                    ? Colors.green.shade900
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Tooltip(
+                        message: isTranslating
+                            ? 'Tippen zum Stoppen'
+                            : 'Tippen zum Starten',
+                        child: GestureDetector(
+                          onTap: () {
+                            if (isTranslating) {
+                              provider.stopTranslation();
+                            } else {
+                              provider.startTranslation();
+                            }
+                          },
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isTranslating ? Colors.red : Colors.deepPurple,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isTranslating ? Colors.red : Colors.deepPurple)
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 12,
+                                  spreadRadius: 3,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isTranslating ? Icons.stop : Icons.mic,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
 
-                // Adaptive TTS Buffer Status Card
-                if (isTranslating) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 1,
-                    color: Colors.blue.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.graphic_eq,
-                                    size: 20,
-                                    color: Colors.blue.shade800,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'TTS Audio-Puffer & Sync',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: provider.currentPlaybackSpeed > 1.01
-                                          ? Colors.orange.shade100
-                                          : Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: provider.currentPlaybackSpeed > 1.01
-                                            ? Colors.orange.shade900
-                                            : Colors.blue.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  provider.isPreRolling
-                                      ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
-                                      : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              if (provider.hasRecentOutOfOrderEvent)
-                                Tooltip(
-                                  message:
-                                      'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 8.0),
-                                    child: Icon(
-                                      Icons.alt_route,
-                                      size: 16,
-                                      color: Colors.orange.shade800,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: (provider.phoneBufferSeconds /
-                                      provider.targetDelaySeconds)
-                                  .clamp(0.0, 1.0),
-                              minHeight: 8,
-                              backgroundColor: Colors.blue.shade100,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                provider.isPreRolling
-                                    ? Colors.orange
-                                    : (provider.phoneBufferSeconds >=
-                                            provider.targetDelaySeconds
-                                        ? Colors.blue.shade700
-                                        : Colors.lightBlue),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.blue.shade900,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+              const SizedBox(height: 12),
+
+              // Audio Level Indicator (Input Volume Bar)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Eingangssignal (Mischpult / USB):',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '${(provider.audioLevel * 100).toInt()}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: provider.audioLevel,
+                      minHeight: 10,
+                      backgroundColor: Colors.grey.shade300,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        provider.audioLevel > 0.8
+                            ? Colors.red
+                            : (provider.audioLevel > 0.4
+                                ? Colors.orange
+                                : Colors.blue),
                       ),
                     ),
                   ),
                 ],
+              ),
 
-                const SizedBox(height: 24),
+              // Adaptive TTS Buffer Status Card
+              if (isTranslating) ...[
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 1,
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.graphic_eq,
+                                  size: 20,
+                                  color: Colors.blue.shade800,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'TTS Audio-Puffer & Sync',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: provider.currentPlaybackSpeed > 1.01
+                                        ? Colors.orange.shade100
+                                        : Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Tempo: ${provider.currentPlaybackSpeed.toStringAsFixed(2)}x',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: provider.currentPlaybackSpeed > 1.01
+                                          ? Colors.orange.shade900
+                                          : Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                provider.isPreRolling
+                                    ? 'Puffern: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s / Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)...'
+                                    : 'Puffer: ${provider.phoneBufferSeconds.toStringAsFixed(1)}s (Ziel: ${provider.targetDelaySeconds.toStringAsFixed(1)}s)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (provider.hasRecentOutOfOrderEvent)
+                              Tooltip(
+                                message:
+                                    'Reihenfolge-Anpassung erfolgte (${provider.ttsOutOfOrderEvents})',
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Icon(
+                                    Icons.alt_route,
+                                    size: 16,
+                                    color: Colors.orange.shade800,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: (provider.phoneBufferSeconds /
+                                    provider.targetDelaySeconds)
+                                .clamp(0.0, 1.0),
+                            minHeight: 8,
+                            backgroundColor: Colors.blue.shade100,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              provider.isPreRolling
+                                  ? Colors.orange
+                                  : (provider.phoneBufferSeconds >=
+                                          provider.targetDelaySeconds
+                                      ? Colors.blue.shade700
+                                      : Colors.lightBlue),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Latenz: Übersetzung ${provider.translationLatencySeconds.toStringAsFixed(2)}s  •  TTS ${provider.ttsLatencySeconds.toStringAsFixed(2)}s${provider.lastLateFragmentDelaySeconds > 0 ? ' (${provider.lastLateFragmentDelaySeconds.toStringAsFixed(2)}s)' : ''}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade900,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
 
-                const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-                // Live Transcript (Russian Subtitles)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Live-Untertitel (Russisch):',
+              const SizedBox(height: 24),
+
+              // Live Transcript (Russian Subtitles)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Live-Untertitel (Russisch):',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (provider.targetTranscript.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear_all, size: 20),
+                      tooltip: 'Untertitel leeren',
+                      onPressed: provider.clearTranscript,
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SingleChildScrollView(
+                    reverse: true, // Auto-scroll to bottom on new text
+                    child: Text(
+                      provider.targetTranscript.isEmpty
+                          ? 'Die übersetzten Sätze erscheinen hier live während des Vortrags...'
+                          : provider.targetTranscript,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        height: 1.4,
+                        color: provider.targetTranscript.isEmpty
+                            ? Colors.grey
+                            : Colors.black87,
                       ),
                     ),
-                    if (provider.targetTranscript.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.clear_all, size: 20),
-                        tooltip: 'Untertitel leeren',
-                        onPressed: provider.clearTranscript,
-                      ),
-                  ],
+                  ),
                 ),
+              ),
 
-                const SizedBox(height: 8),
-
-                Expanded(
-                  child: Container(
+              // Debug: source text as recognized by the model (if enabled in settings)
+              if (provider.enableSourceTranscription)
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Erkannter Quelltext (Deutsch) – Diagnose',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                children: [
+                  Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16.0),
+                    height: 100,
+                    padding: const EdgeInsets.all(12.0),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: SingleChildScrollView(
-                      reverse: true, // Auto-scroll to bottom on new text
+                      reverse: true,
                       child: Text(
-                        provider.targetTranscript.isEmpty
-                            ? 'Die übersetzten Sätze erscheinen hier live während des Vortrags...'
-                            : provider.targetTranscript,
+                        provider.sourceTranscript.isEmpty
+                            ? 'Hier erscheint der vom Modell erkannte deutsche Text...'
+                            : provider.sourceTranscript,
                         style: TextStyle(
-                          fontSize: 18,
-                          height: 1.4,
-                          color: provider.targetTranscript.isEmpty
+                          fontSize: 14,
+                          color: provider.sourceTranscript.isEmpty
                               ? Colors.grey
                               : Colors.black87,
                         ),
                       ),
                     ),
                   ),
-                ),
-
-                // Debug: source text as recognized by the model (if enabled in settings)
-                if (provider.enableSourceTranscription)
-                  ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Erkannter Quelltext (Deutsch) – Diagnose',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      height: 100,
-                      padding: const EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: SingleChildScrollView(
-                        reverse: true,
-                        child: Text(
-                          provider.sourceTranscript.isEmpty
-                              ? 'Hier erscheint der vom Modell erkannte deutsche Text...'
-                              : provider.sourceTranscript,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: provider.sourceTranscript.isEmpty
-                                ? Colors.grey
-                                : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

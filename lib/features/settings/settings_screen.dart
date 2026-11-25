@@ -5,6 +5,7 @@ import '../../core/logging/log_report.dart';
 import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
 import 'log_viewer_screen.dart';
+import 'soniox_region_info.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsRepository settingsRepository;
@@ -154,42 +155,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.of(context).pop();
   }
 
-  Widget _regionInfo(SonioxRegion region) {
-    final eu = region == SonioxRegion.eu;
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: eu ? scheme.secondaryContainer : scheme.tertiaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(eu ? Icons.verified_user_outlined : Icons.public, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              eu
-                  ? 'Region: EU – Audio und Texte werden in der EU verarbeitet.'
-                  : 'Region: USA – Audio und Texte werden in den USA verarbeitet. '
-                      'Für Verarbeitung in der EU: in der Soniox-Konsole unter „Security & compliance“ '
-                      'die EU-Region beantragen, ein Projekt in der EU-Region anlegen und dessen API-Key hier eintragen.',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _apiKeyController.dispose();
-    _glossaryController.dispose();
-    super.dispose();
-  }
-
   Future<void> _reportBug() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -243,7 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   if (_region != null) ...[
                     const SizedBox(height: 8),
-                    _regionInfo(_region!),
+                    SonioxRegionInfo(region: _region),
                   ],
                   const SizedBox(height: 24),
                   const Text(
