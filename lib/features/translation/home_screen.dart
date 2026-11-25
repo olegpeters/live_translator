@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/network/soniox_region.dart';
 import '../../core/storage/settings_repository.dart';
+import '../../core/ui/app_theme.dart';
 import '../settings/settings_screen.dart';
 import 'api_key_setup.dart';
 import 'languages.dart';
@@ -232,17 +233,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _statusCard(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final isTranslating = provider.isTranslating;
     return Card(
-      elevation: 2,
-      color: isTranslating ? Colors.green.shade50 : Colors.grey.shade100,
+      color: isTranslating ? scheme.primaryContainer : scheme.surfaceContainerLow,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
             Icon(
               isTranslating ? Icons.sensors : Icons.sensors_off,
-              color: isTranslating ? Colors.green : Colors.grey,
+              color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
               size: 28,
             ),
             const SizedBox(width: 12),
@@ -250,58 +251,78 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.homeStatus, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    l.homeStatus,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                    ),
+                  ),
                   Text(
                     _statusText(l, provider),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isTranslating ? Colors.green.shade900 : Colors.black87,
+                      color: isTranslating ? scheme.onPrimaryContainer : scheme.onSurface,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            Tooltip(
-              message: isTranslating ? l.homeTapToStop : l.homeTapToStart,
-              child: GestureDetector(
-                onTap: () {
-                  if (isTranslating) {
-                    provider.stopTranslation();
-                  } else {
-                    provider.startTranslation();
-                  }
-                },
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isTranslating ? Colors.red : Colors.deepPurple,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isTranslating ? Colors.red : Colors.deepPurple).withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        spreadRadius: 3,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    isTranslating ? Icons.stop : Icons.mic,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
-              ),
-            ),
+            _startButton(provider),
           ],
         ),
       ),
     );
   }
 
+  /// Round start/stop button: brand gradient (icon colors) to start, error color to stop.
+  Widget _startButton(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final isTranslating = provider.isTranslating;
+    final glow = isTranslating ? scheme.error : AppTheme.violet;
+    return Tooltip(
+      message: isTranslating ? l.homeTapToStop : l.homeTapToStart,
+      child: Semantics(
+        button: true,
+        label: isTranslating ? l.homeTapToStop : l.homeTapToStart,
+        child: GestureDetector(
+          onTap: () {
+            if (isTranslating) {
+              provider.stopTranslation();
+            } else {
+              provider.startTranslation();
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isTranslating ? scheme.error : null,
+              gradient: isTranslating ? null : AppTheme.brandGradient,
+              boxShadow: [
+                BoxShadow(color: glow.withValues(alpha: 0.35), blurRadius: 16, spreadRadius: 2),
+              ],
+            ),
+            child: Icon(
+              isTranslating ? Icons.stop_rounded : Icons.mic_rounded,
+              color: isTranslating ? scheme.onError : Colors.white,
+              size: 38,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _levelBar(TranslationProvider provider) {
+    final scheme = Theme.of(context).colorScheme;
+    final labelStyle = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
+    final level = provider.audioLevel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -310,26 +331,20 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               AppLocalizations.of(context).homeMicLevel,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+              style: labelStyle.copyWith(fontWeight: FontWeight.bold),
             ),
-            Text(
-              '${(provider.audioLevel * 100).toInt()}%',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            Text('${(level * 100).toInt()}%', style: labelStyle),
           ],
         ),
         const SizedBox(height: 6),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(5),
           child: LinearProgressIndicator(
-            value: provider.audioLevel,
+            value: level,
             minHeight: 10,
-            backgroundColor: Colors.grey.shade300,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              provider.audioLevel > 0.8
-                  ? Colors.red
-                  : (provider.audioLevel > 0.4 ? Colors.orange : Colors.blue),
-            ),
+            backgroundColor: scheme.surfaceContainerHighest,
+            // clipping (very loud) in the error color, otherwise the brand accent
+            valueColor: AlwaysStoppedAnimation<Color>(level > 0.8 ? scheme.error : scheme.primary),
           ),
         ),
       ],
@@ -339,12 +354,14 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Debug mode: adaptive TTS buffer, playback speed and latencies.
   Widget _bufferCard(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final buffer = provider.phoneBufferSeconds.toStringAsFixed(1);
     final target = provider.targetDelaySeconds.toStringAsFixed(1);
     final late = provider.lastLateFragmentDelaySeconds;
+    final speedUp = provider.currentPlaybackSpeed > 1.01;
+    final onCard = scheme.onSecondaryContainer;
     return Card(
-      elevation: 1,
-      color: Colors.blue.shade50,
+      color: scheme.secondaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -353,20 +370,25 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.graphic_eq, size: 20, color: Colors.blue.shade800),
-                    const SizedBox(width: 8),
-                    Text(
-                      l.homeBufferTitle,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.graphic_eq, size: 20, color: onCard),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          l.homeBufferTitle,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: onCard),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: provider.currentPlaybackSpeed > 1.01 ? Colors.orange.shade100 : Colors.blue.shade100,
+                    color: speedUp ? scheme.tertiaryContainer : scheme.surface.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -374,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: provider.currentPlaybackSpeed > 1.01 ? Colors.orange.shade900 : Colors.blue.shade900,
+                      color: speedUp ? scheme.onTertiaryContainer : onCard,
                     ),
                   ),
                 ),
@@ -387,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: Text(
                     provider.isPreRolling ? l.homeBufferPrerolling(buffer, target) : l.homeBufferStatus(buffer, target),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: onCard),
                   ),
                 ),
                 if (provider.hasRecentOutOfOrderEvent)
@@ -395,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     message: l.homeBufferReorder(provider.ttsOutOfOrderEvents),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 8.0),
-                      child: Icon(Icons.alt_route, size: 16, color: Colors.orange.shade800),
+                      child: Icon(Icons.alt_route, size: 16, color: scheme.tertiary),
                     ),
                   ),
               ],
@@ -406,14 +428,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: LinearProgressIndicator(
                 value: (provider.phoneBufferSeconds / provider.targetDelaySeconds).clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: Colors.blue.shade100,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  provider.isPreRolling
-                      ? Colors.orange
-                      : (provider.phoneBufferSeconds >= provider.targetDelaySeconds
-                          ? Colors.blue.shade700
-                          : Colors.lightBlue),
-                ),
+                backgroundColor: scheme.surface.withValues(alpha: 0.6),
+                valueColor: AlwaysStoppedAnimation<Color>(provider.isPreRolling ? scheme.tertiary : scheme.primary),
               ),
             ),
             const SizedBox(height: 6),
@@ -423,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     provider.ttsLatencySeconds.toStringAsFixed(2),
                   ) +
                   (late > 0 ? ' (${late.toStringAsFixed(2)}s)' : ''),
-              style: TextStyle(fontSize: 11, color: Colors.blue.shade900, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 11, color: onCard, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -433,24 +449,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _transcriptBox(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final empty = provider.targetTranscript.isEmpty;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: SingleChildScrollView(
         reverse: true, // Auto-scroll to bottom on new text
         child: Text(
-          provider.targetTranscript.isEmpty
-              ? l.homeTranscriptPlaceholder
-              : provider.targetTranscript,
+          empty ? l.homeTranscriptPlaceholder : provider.targetTranscript,
           style: TextStyle(
             fontSize: 18,
-            height: 1.4,
-            color: provider.targetTranscript.isEmpty ? Colors.grey : Colors.black87,
+            height: 1.45,
+            color: empty ? scheme.onSurfaceVariant : scheme.onSurface,
           ),
         ),
       ),
@@ -459,11 +475,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _sourceTranscriptTile(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final empty = provider.sourceTranscript.isEmpty;
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       title: Text(
         l.homeSourceTranscriptTitle,
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
+        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
       ),
       children: [
         Container(
@@ -471,20 +489,15 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 100,
           padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
           ),
           child: SingleChildScrollView(
             reverse: true,
             child: Text(
-              provider.sourceTranscript.isEmpty
-                  ? l.homeSourceTranscriptPlaceholder
-                  : provider.sourceTranscript,
-              style: TextStyle(
-                fontSize: 14,
-                color: provider.sourceTranscript.isEmpty ? Colors.grey : Colors.black87,
-              ),
+              empty ? l.homeSourceTranscriptPlaceholder : provider.sourceTranscript,
+              style: TextStyle(fontSize: 14, color: empty ? scheme.onSurfaceVariant : scheme.onSurface),
             ),
           ),
         ),

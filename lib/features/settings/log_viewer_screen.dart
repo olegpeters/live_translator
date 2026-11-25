@@ -112,8 +112,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () {
               AppLogger.clear();
@@ -131,15 +131,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Color _getLevelColor(LogLevel level) {
+    final scheme = Theme.of(context).colorScheme;
     switch (level) {
       case LogLevel.debug:
-        return Colors.grey.shade700;
+        return scheme.onSurfaceVariant;
       case LogLevel.info:
-        return Colors.blue.shade700;
+        return scheme.primary;
       case LogLevel.warning:
-        return Colors.orange.shade800;
+        return scheme.tertiary;
       case LogLevel.error:
-        return Colors.red.shade700;
+        return scheme.error;
     }
   }
 
@@ -206,14 +207,14 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                   ? Icons.vertical_align_bottom
                                   : Icons.vertical_align_center,
                               size: 16,
-                              color: _autoScrollToBottom ? Colors.green.shade700 : Colors.grey,
+                              color: _autoScrollToBottom ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               l.logsAutoScroll,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: _autoScrollToBottom ? Colors.green.shade700 : Colors.grey,
+                                color: _autoScrollToBottom ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -291,7 +292,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                           totalCount == 0
                               ? l.logsEmpty
                               : l.logsNoMatch,
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       )
                     : SelectionArea(
@@ -344,7 +345,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                         _formatTime(entry.timestamp),
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey.shade600,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -362,7 +363,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                     Text(
                                       'Error: ${entry.error}',
                                       style: TextStyle(
-                                        color: Colors.red.shade800,
+                                        color: Theme.of(context).colorScheme.error,
                                         fontFamily: 'monospace',
                                         fontSize: 11,
                                       ),
@@ -373,7 +374,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                     Text(
                                       '${entry.stackTrace}',
                                       style: TextStyle(
-                                        color: Colors.red.shade900,
+                                        color: Theme.of(context).colorScheme.error,
                                         fontFamily: 'monospace',
                                         fontSize: 10,
                                       ),
@@ -396,7 +397,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   color: Theme.of(context).colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       blurRadius: 4,
                       offset: const Offset(0, -2),
                     )
