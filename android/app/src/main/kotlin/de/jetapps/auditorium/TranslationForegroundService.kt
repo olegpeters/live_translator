@@ -1,5 +1,6 @@
 package de.jetapps.auditorium
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,9 +8,11 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 
 /**
  * Foreground service (type "microphone") that keeps mic capture alive while the app is in the
@@ -20,11 +23,25 @@ class TranslationForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Android 14+ throws (and kills the app) when a microphone-type service starts without
+        // RECORD_AUDIO or while the app is not eligible. Without it there is nothing to keep alive.
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "RECORD_AUDIO not granted, not starting foreground service")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: RuntimeException) {
+            // SecurityException / ForegroundServiceStartNotAllowedException: translation still
+            // works in the foreground, only background capture is lost.
+            Log.w(TAG, "Could not start foreground service", e)
+            stopSelf()
         }
         return START_NOT_STICKY
     }
@@ -57,6 +74,7 @@ class TranslationForegroundService : Service() {
     }
 
     companion object {
+        private const val TAG = "TranslationFgService"
         private const val CHANNEL_ID = "live_translation"
         private const val NOTIFICATION_ID = 4711
 

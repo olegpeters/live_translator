@@ -308,6 +308,12 @@ abstract class AppLocalizations {
   /// **'Failed to start: {error}'**
   String statusStartFailed(String error);
 
+  /// No description provided for @statusMicPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access denied. Allow it in the Android app settings.'**
+  String get statusMicPermissionDenied;
+
   /// No description provided for @statusStopping.
   ///
   /// In en, this message translates to:

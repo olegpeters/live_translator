@@ -133,6 +133,10 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get statusMicPermissionDenied =>
+      'Kein Zugriff aufs Mikrofon. Bitte in den Android-App-Einstellungen erlauben.';
+
+  @override
   String get statusStopping => 'Stoppe...';
 
   @override

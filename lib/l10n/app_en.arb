@@ -102,6 +102,7 @@
       }
     }
   },
+  "statusMicPermissionDenied": "Microphone access denied. Allow it in the Android app settings.",
   "statusStopping": "Stopping...",
   "langGerman": "German",
   "langEnglish": "English",

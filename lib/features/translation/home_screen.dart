@@ -296,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
     TranslationStatus.noApiKey => l.statusNoApiKey,
     TranslationStatus.initializing => l.statusInitializing,
     TranslationStatus.startFailed => l.statusStartFailed(provider.statusError ?? ''),
+    TranslationStatus.micPermissionDenied => l.statusMicPermissionDenied,
     TranslationStatus.stopping => l.statusStopping,
   };
 
@@ -310,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
       TranslationStatus.keyRejected,
       TranslationStatus.noApiKey,
       TranslationStatus.startFailed,
+      TranslationStatus.micPermissionDenied,
     }.contains(status);
     final (background, foreground, dot) = live
         ? (scheme.primaryContainer, scheme.onPrimaryContainer, const Color(0xFFE5484D))

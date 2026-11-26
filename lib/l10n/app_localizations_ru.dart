@@ -133,6 +133,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get statusMicPermissionDenied =>
+      'Нет доступа к микрофону. Разрешите его в настройках приложения Android.';
+
+  @override
   String get statusStopping => 'Остановка...';
 
   @override

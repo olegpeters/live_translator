@@ -31,6 +31,7 @@ enum TranslationStatus {
   noApiKey,
   initializing,
   startFailed,
+  micPermissionDenied,
   stopping,
 }
 
@@ -389,6 +390,15 @@ class TranslationProvider extends ChangeNotifier {
 
     if (_ttsEngine == 'onboard') {
       await onboardTtsService.setLanguage(targetLanguage);
+    }
+
+    // Ask for the microphone before anything else: Android 14+ refuses (and crashes the app on)
+    // a foreground service of type microphone while RECORD_AUDIO is not granted.
+    if (!await audioService.checkAndRequestPermissions()) {
+      AppLogger.warning('Microphone permission denied', tag: 'TranslationProvider');
+      _status = TranslationStatus.micPermissionDenied;
+      notifyListeners();
+      return;
     }
 
     _targetTranscript.clear();

@@ -34,6 +34,7 @@
   "statusNoApiKey": "Erreur : aucune clé API dans les paramètres.",
   "statusInitializing": "Initialisation...",
   "statusStartFailed": "Échec du démarrage : {error}",
+  "statusMicPermissionDenied": "Accès au micro refusé. Autorisez-le dans les paramètres de l’app Android.",
   "statusStopping": "Arrêt...",
   "langGerman": "Allemand",
   "langEnglish": "Anglais",

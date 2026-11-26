@@ -34,6 +34,7 @@
   "statusNoApiKey": "Fehler: Kein API-Key in den Einstellungen hinterlegt.",
   "statusInitializing": "Initialisiere...",
   "statusStartFailed": "Fehler beim Starten: {error}",
+  "statusMicPermissionDenied": "Kein Zugriff aufs Mikrofon. Bitte in den Android-App-Einstellungen erlauben.",
   "statusStopping": "Stoppe...",
   "langGerman": "Deutsch",
   "langEnglish": "Englisch",

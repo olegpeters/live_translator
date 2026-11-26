@@ -34,6 +34,7 @@
   "statusNoApiKey": "Ошибка: в настройках не указан API-ключ.",
   "statusInitializing": "Инициализация...",
   "statusStartFailed": "Ошибка запуска: {error}",
+  "statusMicPermissionDenied": "Нет доступа к микрофону. Разрешите его в настройках приложения Android.",
   "statusStopping": "Остановка...",
   "langGerman": "Немецкий",
   "langEnglish": "Английский",
