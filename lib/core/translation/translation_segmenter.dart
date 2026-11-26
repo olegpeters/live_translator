@@ -41,10 +41,11 @@ class TranslationSegmenter {
   bool _streamOpen = false;
   Timer? _idleTimer;
 
-  static final RegExp _sentenceEnd = RegExp(r'[.!?…]+[»"”’)\]]*$');
-  static final RegExp _clauseEnd = RegExp(r'[,;:]+[»"”’)\]]*$');
+  // Includes Arabic punctuation: ؟ (question mark), ۔ (full stop), ، (comma), ؛ (semicolon).
+  static final RegExp _sentenceEnd = RegExp(r'[.!?…؟۔]+[»"”’)\]]*$');
+  static final RegExp _clauseEnd = RegExp(r'[,;:،؛]+[»"”’)\]]*$');
   // Sentence punctuation followed by whitespace inside the pending text = confirmed boundary.
-  static final RegExp _confirmedSentence = RegExp(r'[.!?…]+[»"”’)\]]*(?=\s)');
+  static final RegExp _confirmedSentence = RegExp(r'[.!?…؟۔]+[»"”’)\]]*(?=\s)');
 
   TranslationSegmenter({required this.onPiece, this.idleClose = defaultIdleClose});
 

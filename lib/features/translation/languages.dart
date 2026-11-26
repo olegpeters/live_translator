@@ -4,7 +4,10 @@ import '../../l10n/app_localizations.dart';
 const sourceLanguageCodes = ['', 'de', 'en'];
 
 /// Translation target languages.
-const targetLanguageCodes = ['ru', 'uk', 'en', 'es', 'fr'];
+const targetLanguageCodes = ['ru', 'uk', 'en', 'de', 'es', 'fr', 'ar'];
+
+/// Target languages written right to left.
+const rtlLanguageCodes = {'ar'};
 
 /// Localized name of a language code used on the home screen.
 String languageName(AppLocalizations l, String code) => switch (code) {
@@ -14,6 +17,7 @@ String languageName(AppLocalizations l, String code) => switch (code) {
       'uk' => l.langUkrainian,
       'es' => l.langSpanish,
       'fr' => l.langFrench,
+      'ar' => l.langArabic,
       '' => l.langAuto,
       _ => code,
     };

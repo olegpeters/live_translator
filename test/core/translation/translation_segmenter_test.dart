@@ -107,4 +107,16 @@ void main() {
   test('normalization: dashes become commas, quotes removed, stream start trimmed', () {
     expect(TranslationSegmenter.normalize(' история — это «правда»', isStreamStart: true), 'история, это правда');
   });
+
+  test('Arabic punctuation: ؟ and ۔ end sentences, ، is no boundary', () {
+    fakeAsync((async) {
+      setUpSeg();
+      for (final t in ['مرحبا،', ' كيف', ' حالكم؟', ' نحن', ' هنا۔', ' اليوم']) {
+        seg.addToken(t);
+      }
+      expect(streams().take(2).toList(), ['مرحبا، كيف حالكم؟', 'نحن هنا۔']);
+      expect(pieces.firstWhere((p) => p.isEnd).boundary, SegmentBoundary.sentence);
+      seg.dispose();
+    });
+  });
 }

@@ -29,6 +29,10 @@ class OnboardTtsService {
         return 'fr-FR';
       case 'uk':
         return 'uk-UA';
+      case 'de':
+        return 'de-DE';
+      case 'ar':
+        return 'ar';
       default:
         return code;
     }

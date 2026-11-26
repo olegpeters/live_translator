@@ -112,6 +112,7 @@
   "langUkrainian": "Ukrainian",
   "langSpanish": "Spanish",
   "langFrench": "French",
+  "langArabic": "Arabic",
   "setupTitle": "Enter Soniox API key",
   "setupIntro": "Auditorium uses Soniox for speech recognition, translation and speech output. Enter your API key to get started.",
   "apiKeyLabel": "Soniox API key",

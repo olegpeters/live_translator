@@ -164,6 +164,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get langFrench => 'Французский';
 
   @override
+  String get langArabic => 'Арабский';
+
+  @override
   String get setupTitle => 'Введите API-ключ Soniox';
 
   @override

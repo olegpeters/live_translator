@@ -368,6 +368,12 @@ abstract class AppLocalizations {
   /// **'French'**
   String get langFrench;
 
+  /// No description provided for @langArabic.
+  ///
+  /// In en, this message translates to:
+  /// **'Arabic'**
+  String get langArabic;
+
   /// No description provided for @setupTitle.
   ///
   /// In en, this message translates to:

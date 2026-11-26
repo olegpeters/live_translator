@@ -171,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
       required String tooltip,
       required String value,
       required List<String> options,
+      required String other,
       required ValueChanged<String> onSelected,
     }) {
       return PopupMenuButton<String>(
@@ -180,7 +181,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelected: onSelected,
         position: PopupMenuPosition.under,
         itemBuilder: (context) => [
-          for (final code in options) PopupMenuItem(value: code, child: Text(languageName(l, code))),
+          // Translating into the spoken language makes no sense (Soniox passes it through untranslated).
+          for (final code in options)
+            PopupMenuItem(value: code, enabled: code != other, child: Text(languageName(l, code))),
         ],
         child: Container(
           height: 44,
@@ -214,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: l.homeSourceLanguage,
               value: _sourceLanguage,
               options: sourceLanguageCodes,
+              other: _targetLanguage,
               onSelected: (code) {
                 setState(() => _sourceLanguage = code);
                 settingsRepository.setSourceLanguage(code);
@@ -229,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: l.homeTargetLanguage,
               value: _targetLanguage,
               options: targetLanguageCodes,
+              other: _sourceLanguage,
               onSelected: (code) {
                 setState(() => _targetLanguage = code);
                 settingsRepository.setTargetLanguage(code);
@@ -417,6 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(right: 10),
               child: Text(
                 empty ? l.homeTranscriptPlaceholder : provider.targetTranscript,
+                textDirection: !empty && rtlLanguageCodes.contains(_targetLanguage) ? TextDirection.rtl : null,
                 style: TextStyle(fontSize: 19, height: 1.45, color: empty ? scheme.onSurfaceVariant : scheme.onSurface),
               ),
             ),

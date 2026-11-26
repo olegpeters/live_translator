@@ -163,6 +163,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get langFrench => 'Français';
 
   @override
+  String get langArabic => 'Arabe';
+
+  @override
   String get setupTitle => 'Saisir la clé API Soniox';
 
   @override

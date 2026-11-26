@@ -258,4 +258,25 @@ void main() {
     expect(await repo.getGlossaryPreset(), 'sermon');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('target languages include German and Arabic; the spoken language is not selectable as target',
+      (tester) async {
+    await repo.setApiKey('my-key');
+    await repo.setSourceLanguage('de');
+    await tester.pumpWidget(home(_FakeDetector(SonioxKeyCheck.eu)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Übersetzung'));
+    await tester.pumpAndSettle();
+    expect(find.text('Arabisch'), findsOneWidget);
+    final german = tester.widget<PopupMenuItem<String>>(
+      find.ancestor(of: find.text('Deutsch').last, matching: find.byType(PopupMenuItem<String>)),
+    );
+    expect(german.enabled, isFalse);
+
+    await tester.tap(find.text('Arabisch'));
+    await tester.pumpAndSettle();
+    expect(await repo.getTargetLanguage(), 'ar');
+    expect(tester.takeException(), isNull);
+  });
 }

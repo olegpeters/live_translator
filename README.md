@@ -5,7 +5,7 @@ per Sprachausgabe direkt in die Kopfhörer spricht – auch bei ausgeschaltetem 
 
 - Spracherkennung, Übersetzung und Sprachausgabe: [Soniox](https://soniox.com) (Realtime STT + TTS; EU- oder US-Endpunkte je nach Region des Soniox-Projekts, automatisch erkannt)
 - Gesprochene Sprache: Deutsch, Englisch oder automatisch
-- Zielsprachen: Russisch, Ukrainisch, Englisch, Spanisch, Französisch
+- Zielsprachen: Russisch, Ukrainisch, Englisch, Deutsch, Spanisch, Französisch, Arabisch
 - Eigenes Glossar für Namen und Fachbegriffe; Glossar für Predigten ist enthalten
 
 Für die Nutzung ist ein eigener Soniox-API-Schlüssel nötig, der in den Einstellungen eingetragen

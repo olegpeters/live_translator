@@ -14,7 +14,7 @@ Hinterlege ein eigenes Glossar mit Namen und Fachbegriffen, damit sie korrekt er
 
 <b>Sprachen</b>
 • Gesprochene Sprache: Deutsch oder Englisch (oder automatisch erkennen)
-• Übersetzung in: Russisch, Ukrainisch, Englisch, Spanisch, Französisch
+• Übersetzung in: Russisch, Ukrainisch, Englisch, Deutsch, Spanisch, Französisch, Arabisch
 • Mehrere natürliche Stimmen zur Auswahl
 • Die übersetzten Sätze erscheinen zusätzlich als Text auf dem Bildschirm
 
