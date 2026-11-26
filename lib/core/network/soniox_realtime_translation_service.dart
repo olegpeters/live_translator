@@ -282,7 +282,7 @@ class SonioxRealtimeTranslationService {
     // Authentication happens via Authorization header / WebSocket protocol only;
     // 'api_key' in the config is deprecated and must not be sent in addition.
     final config = {
-      'model': 'stt-rt-v5',
+      'model': 'stt-rt-v6',
       'audio_format': 'pcm_s16le',
       'sample_rate': 24000,
       'num_channels': 1,

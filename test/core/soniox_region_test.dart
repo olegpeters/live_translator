@@ -93,7 +93,7 @@ void main() {
     final sent = s.channels.single._sink.sent;
     final config = jsonDecode(sent.first as String) as Map<String, dynamic>;
     expect(config.containsKey('api_key'), isFalse);
-    expect(config['model'], 'stt-rt-v5');
+    expect(config['model'], 'stt-rt-v6');
     expect(sent.last, '');
   });
 

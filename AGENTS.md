@@ -13,7 +13,7 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
   stores the region; the settings show it with a hint how to get EU processing.
 - **Never send `api_key` in config payloads** (deprecated; "don't send it both ways"; refused from 15 Jan 2027).
 
-## 2. Soniox STT (`stt-rt-v5`)
+## 2. Soniox STT (`stt-rt-v6`)
 - Config supports `language_hints`, `context` (`terms`, `translation_terms: [{source, target}]`, `general`, `text`), `enable_endpoint_detection`, `max_endpoint_delay_ms` (500–3000).
 - Non-final tokens are re-sent with every response and replace the previous provisional text; final tokens arrive once. Use `TranscriptModel` (final + provisional), never append non-final tokens.
 - `translation_status`: `original` (source), `translation`, `none` (not translated, e.g. already target language / playback echo).

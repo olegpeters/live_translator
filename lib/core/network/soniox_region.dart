@@ -94,7 +94,7 @@ class SonioxRegionDetector {
     try {
       channel = openSonioxChannel(Uri.parse(region.sttUrl), apiKey, factory: channelFactory);
       channel.sink.add(jsonEncode({
-        'model': 'stt-rt-v5',
+        'model': 'stt-rt-v6',
         'audio_format': 'pcm_s16le',
         'sample_rate': 16000,
         'num_channels': 1,

@@ -214,7 +214,7 @@ void main() {
       final sttConfigs = sttChannel.jsonSent;
       expect(sttConfigs, hasLength(1));
       expect(sttConfigs.first.containsKey('api_key'), isFalse);
-      expect(sttConfigs.first['model'], 'stt-rt-v5');
+      expect(sttConfigs.first['model'], 'stt-rt-v6');
       expect(sttConfigs.first['translation']['target_language'], 'ru');
 
       sttChannel.serverSend({
