@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Launch screen before Flutter draws (Android < 12): brand gradient like the store icon.
+     The Flutter splash (SplashOverlay) continues it with the app name in the middle. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="315"
+                android:startColor="@color/brand_cyan"
+                android:centerColor="@color/brand_blue_violet"
+                android:endColor="@color/brand_magenta"
+                android:type="linear" />
+        </shape>
+    </item>
 </layer-list>

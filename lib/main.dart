@@ -7,6 +7,7 @@ import 'core/logging/error_handlers.dart';
 import 'core/network/soniox_realtime_translation_service.dart';
 import 'core/storage/settings_repository.dart';
 import 'core/ui/app_theme.dart';
+import 'features/splash/splash_overlay.dart';
 import 'features/translation/home_screen.dart';
 import 'features/translation/translation_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -64,7 +65,8 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,
-        home: HomeScreen(settingsRepository: settingsRepository),
+        // The home screen loads under the launch screen (brand gradient + name).
+        home: SplashOverlay(child: HomeScreen(settingsRepository: settingsRepository)),
       ),
     );
   }

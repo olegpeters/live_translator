@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand gradient (store icon): cyan → electric blue → violet → magenta. -->
+    <color name="brand_cyan">#1FD1F0</color>
+    <color name="brand_blue_violet">#4848F5</color>
+    <color name="brand_magenta">#D13CE8</color>
+</resources>

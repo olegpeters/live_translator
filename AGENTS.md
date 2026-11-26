@@ -58,6 +58,10 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
   stored value for the settings screen).
 - **Settings:** back top left (discards changes), "Speichern" top right in the app bar.
 - **Source language** defaults to automatic detection (no `language_hints`).
+- **Launch:** native launch screen = brand color (Android 12+ supports no gradient there) / gradient (< 12);
+  `SplashOverlay` fades in the brand gradient with "Auditorium", the home screen loads underneath.
+- **Launcher icon:** adaptive icon, store artwork as 108 dp background layer (68 dp artwork inside, safe for all
+  masks); legacy PNGs with rounded corners. Notification icon is the white vector `ic_stat_auditorium`.
 
 ## 8. i18n
 - UI languages: en (template + fallback for unsupported device languages), de, ru, es, fr.
