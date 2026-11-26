@@ -16,12 +16,15 @@ class SettingsRepository {
   static const String _keyMicRecording = 'debug_mic_recording';
   static const String _keySourceLanguage = 'source_language';
   static const String _keyGlossary = 'glossary';
-  static const String _keyUseGlossaryPreset = 'use_glossary_preset';
+  static const String _keyGlossaryPreset = 'glossary_preset';
   static const String _keySonioxRegion = 'soniox_region';
   static const String _keyDebugMode = 'debug_mode';
 
-  /// Bundled glossary preset (sermon context, Seventh-day Adventist church).
-  static const String glossaryPresetAsset = 'assets/glossary/adventist_sermon.txt';
+  /// Bundled glossary presets by id ('' = none, the default).
+  static const Map<String, String> glossaryPresetAssets = {
+    // Sermon context, Seventh-day Adventist church.
+    'sermon': 'assets/glossary/adventist_sermon.txt',
+  };
 
   /// Default audio output gain multiplier (2.0 = 200% / +6 dB amplification boost).
   static const double defaultOutputGain = 2.0;
@@ -181,15 +184,17 @@ class SettingsRepository {
     await _prefs?.setString(_keyGlossary, glossary);
   }
 
-  /// Whether the bundled glossary preset is combined with the free-text glossary.
-  Future<bool> getUseGlossaryPreset() async {
+  /// Bundled glossary preset combined with the free-text glossary: a key of
+  /// [glossaryPresetAssets], or '' for none (default).
+  Future<String> getGlossaryPreset() async {
     await init();
-    return _prefs?.getBool(_keyUseGlossaryPreset) ?? true;
+    final id = _prefs?.getString(_keyGlossaryPreset) ?? '';
+    return glossaryPresetAssets.containsKey(id) ? id : '';
   }
 
-  Future<void> setUseGlossaryPreset(bool enabled) async {
+  Future<void> setGlossaryPreset(String id) async {
     await init();
-    await _prefs?.setBool(_keyUseGlossaryPreset, enabled);
+    await _prefs?.setString(_keyGlossaryPreset, id);
   }
 
   /// Debug option (default 'soniox').

@@ -229,8 +229,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsGlossary => 'Glossar';
 
   @override
-  String get settingsGlossaryPreset =>
-      'Glossar-Preset „Predigt (Adventisten)“ verwenden';
+  String get settingsGlossaryPreset => 'Vorlage';
+
+  @override
+  String get settingsGlossaryPresetNone => 'Keine';
+
+  @override
+  String get settingsGlossaryPresetSermon => 'Predigt';
 
   @override
   String get settingsGlossaryPresetHint =>

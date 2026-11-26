@@ -473,8 +473,20 @@ abstract class AppLocalizations {
   /// No description provided for @settingsGlossaryPreset.
   ///
   /// In en, this message translates to:
-  /// **'Use glossary preset “Sermon (Adventist)”'**
+  /// **'Preset'**
   String get settingsGlossaryPreset;
+
+  /// No description provided for @settingsGlossaryPresetNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get settingsGlossaryPresetNone;
+
+  /// No description provided for @settingsGlossaryPresetSermon.
+  ///
+  /// In en, this message translates to:
+  /// **'Sermon'**
+  String get settingsGlossaryPresetSermon;
 
   /// No description provided for @settingsGlossaryPresetHint.
   ///

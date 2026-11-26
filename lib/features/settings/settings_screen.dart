@@ -28,7 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _micRecording = false;
   bool _debugMode = false;
   final _glossaryController = TextEditingController();
-  bool _useGlossaryPreset = true;
+  String _glossaryPreset = '';
   bool _isLoading = true;
   bool _isSaving = false;
   final _regionDetector = SonioxRegionDetector();
@@ -68,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final voiceProcessingMode = await widget.settingsRepository.getVoiceProcessingMode(raw: true);
     final micRecording = await widget.settingsRepository.getMicRecording(raw: true);
     final glossary = await widget.settingsRepository.getGlossary();
-    final useGlossaryPreset = await widget.settingsRepository.getUseGlossaryPreset();
+    final glossaryPreset = await widget.settingsRepository.getGlossaryPreset();
     final region = SonioxRegion.fromCode(await widget.settingsRepository.getSonioxRegion());
 
     setState(() {
@@ -85,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _voiceProcessingMode = voiceProcessingMode;
       _micRecording = micRecording;
       _glossaryController.text = glossary;
-      _useGlossaryPreset = useGlossaryPreset;
+      _glossaryPreset = glossaryPreset;
       _isLoading = false;
     });
   }
@@ -101,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.settingsRepository.setVoiceProcessingMode(_voiceProcessingMode);
     await widget.settingsRepository.setMicRecording(_micRecording);
     await widget.settingsRepository.setGlossary(_glossaryController.text);
-    await widget.settingsRepository.setUseGlossaryPreset(_useGlossaryPreset);
+    await widget.settingsRepository.setGlossaryPreset(_glossaryPreset);
     await widget.settingsRepository
         .setEnableSourceTranscription(_enableSourceTranscription);
 
@@ -235,15 +235,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(l.settingsGlossary, style: sectionStyle),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(l.settingsGlossaryPreset),
-                    subtitle: Text(l.settingsGlossaryPresetHint),
-                    value: _useGlossaryPreset,
-                    onChanged: (val) => setState(() => _useGlossaryPreset = val ?? false),
-                  ),
                   const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    key: const ValueKey('glossaryPreset'),
+                    isExpanded: true,
+                    initialValue: _glossaryPreset,
+                    decoration: InputDecoration(
+                      labelText: l.settingsGlossaryPreset,
+                      helperText: _glossaryPreset == 'sermon' ? l.settingsGlossaryPresetHint : null,
+                      helperMaxLines: 4,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: '', child: Text(l.settingsGlossaryPresetNone)),
+                      DropdownMenuItem(value: 'sermon', child: Text(l.settingsGlossaryPresetSermon)),
+                    ],
+                    onChanged: (val) => setState(() => _glossaryPreset = val ?? ''),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _glossaryController,
                     minLines: 3,

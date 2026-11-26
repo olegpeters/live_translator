@@ -74,5 +74,16 @@ void main() {
       expect(await repository.getTtsEngine(), 'onboard');
       expect(await repository.getVoiceProcessingMode(), 'off');
     });
+
+    test('glossary preset: none by default, "sermon" selectable, unknown ids fall back to none', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = SettingsRepository();
+      expect(await repository.getGlossaryPreset(), '');
+      await repository.setGlossaryPreset('sermon');
+      expect(await repository.getGlossaryPreset(), 'sermon');
+      expect(SettingsRepository.glossaryPresetAssets['sermon'], 'assets/glossary/adventist_sermon.txt');
+      await repository.setGlossaryPreset('gone');
+      expect(await repository.getGlossaryPreset(), '');
+    });
   });
 }

@@ -228,8 +228,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGlossary => 'Glossary';
 
   @override
-  String get settingsGlossaryPreset =>
-      'Use glossary preset “Sermon (Adventist)”';
+  String get settingsGlossaryPreset => 'Preset';
+
+  @override
+  String get settingsGlossaryPresetNone => 'None';
+
+  @override
+  String get settingsGlossaryPresetSermon => 'Sermon';
 
   @override
   String get settingsGlossaryPresetHint =>

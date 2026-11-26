@@ -157,7 +157,9 @@
     }
   },
   "settingsGlossary": "Glossary",
-  "settingsGlossaryPreset": "Use glossary preset “Sermon (Adventist)”",
+  "settingsGlossaryPreset": "Preset",
+  "settingsGlossaryPresetNone": "None",
+  "settingsGlossaryPresetSermon": "Sermon",
   "settingsGlossaryPresetHint": "Bible books, names, Adventist terms and Ellen White book titles. Combined with your own glossary; your own entries take precedence.",
   "settingsOwnGlossary": "Own glossary (names, terms)",
   "settingsOwnGlossaryHint": "One entry per line, e.g.\nAaron\nAnbetung = поклонение",

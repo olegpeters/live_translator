@@ -226,4 +226,36 @@ void main() {
     expect(find.textContaining('Kein Zugriff aufs Mikrofon'), findsOneWidget);
     expect(find.text('App-Einstellungen öffnen'), findsOneWidget);
   });
+
+  testWidgets('glossary preset is a dropdown: empty by default, "Predigt" is saved', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(
+      navigatorKey: navigator,
+      locale: const Locale('de'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(),
+    ));
+    navigator.currentState!.push(MaterialPageRoute(builder: (_) => SettingsScreen(settingsRepository: repo)));
+    await tester.pumpAndSettle();
+
+    final dropdown = find.byKey(const ValueKey('glossaryPreset'));
+    await tester.scrollUntilVisible(dropdown, 200, scrollable: find.byType(Scrollable).first);
+    expect(find.descendant(of: dropdown, matching: find.text('Keine')), findsOneWidget);
+    expect(find.byType(CheckboxListTile), findsNothing);
+
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Predigt').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Bibelbücher'), findsOneWidget); // hint for the selected preset
+
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+    expect(await repo.getGlossaryPreset(), 'sermon');
+    expect(tester.takeException(), isNull);
+  });
 }

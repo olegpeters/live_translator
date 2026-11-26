@@ -227,8 +227,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsGlossary => 'Глоссарий';
 
   @override
-  String get settingsGlossaryPreset =>
-      'Использовать глоссарий «Проповедь (адвентисты)»';
+  String get settingsGlossaryPreset => 'Шаблон';
+
+  @override
+  String get settingsGlossaryPresetNone => 'Нет';
+
+  @override
+  String get settingsGlossaryPresetSermon => 'Проповедь';
 
   @override
   String get settingsGlossaryPresetHint =>

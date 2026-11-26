@@ -229,8 +229,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsGlossary => 'Glosario';
 
   @override
-  String get settingsGlossaryPreset =>
-      'Usar el glosario predefinido «Sermón (adventista)»';
+  String get settingsGlossaryPreset => 'Plantilla';
+
+  @override
+  String get settingsGlossaryPresetNone => 'Ninguna';
+
+  @override
+  String get settingsGlossaryPresetSermon => 'Sermón';
 
   @override
   String get settingsGlossaryPresetHint =>

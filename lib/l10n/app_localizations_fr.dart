@@ -228,8 +228,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsGlossary => 'Glossaire';
 
   @override
-  String get settingsGlossaryPreset =>
-      'Utiliser le glossaire prédéfini « Sermon (adventiste) »';
+  String get settingsGlossaryPreset => 'Modèle';
+
+  @override
+  String get settingsGlossaryPresetNone => 'Aucun';
+
+  @override
+  String get settingsGlossaryPresetSermon => 'Sermon';
 
   @override
   String get settingsGlossaryPresetHint =>

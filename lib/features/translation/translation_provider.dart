@@ -512,12 +512,13 @@ class TranslationProvider extends ChangeNotifier {
     }
   }
 
-  /// Preset glossary (if enabled) combined with the free-text glossary; free-text entries win.
+  /// Preset glossary (if one is selected) combined with the free-text glossary; free-text entries win.
   Future<Glossary> _buildGlossary(String targetLanguage) async {
     var glossary = const Glossary();
-    if (await settingsRepository.getUseGlossaryPreset()) {
+    final asset = SettingsRepository.glossaryPresetAssets[await settingsRepository.getGlossaryPreset()];
+    if (asset != null) {
       try {
-        final raw = await rootBundle.loadString(SettingsRepository.glossaryPresetAsset);
+        final raw = await rootBundle.loadString(asset);
         glossary = Glossary.parse(raw, targetLanguage: targetLanguage);
       } catch (e) {
         AppLogger.warning('Glossary preset could not be loaded: $e', tag: 'TranslationProvider');
