@@ -314,6 +314,12 @@ abstract class AppLocalizations {
   /// **'Microphone access denied. Allow it in the Android app settings.'**
   String get statusMicPermissionDenied;
 
+  /// No description provided for @homeOpenAppSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open app settings'**
+  String get homeOpenAppSettings;
+
   /// No description provided for @statusStopping.
   ///
   /// In en, this message translates to:

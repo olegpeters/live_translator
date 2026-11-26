@@ -136,6 +136,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Accès au micro refusé. Autorisez-le dans les paramètres de l’app Android.';
 
   @override
+  String get homeOpenAppSettings => 'Ouvrir les paramètres de l’app';
+
+  @override
   String get statusStopping => 'Arrêt...';
 
   @override

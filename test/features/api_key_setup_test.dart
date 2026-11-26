@@ -13,6 +13,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Home state after the user refused the microphone.
+class _MicDeniedProvider extends TranslationProvider {
+  _MicDeniedProvider(SettingsRepository repo)
+      : super(
+          settingsRepository: repo,
+          translationService: SonioxRealtimeTranslationService(),
+          audioService: AudioService(),
+        );
+
+  @override
+  TranslationStatus get status => TranslationStatus.micPermissionDenied;
+}
+
 class _FakeDetector extends SonioxRegionDetector {
   _FakeDetector(this.result);
   final SonioxKeyCheck result;
@@ -200,5 +213,17 @@ void main() {
     expect(find.text('Soniox akzeptiert diesen API-Key nicht. Bitte prüfen.'), findsOneWidget);
     expect(find.text('Verstanden'), findsNothing);
     expect(done(), isFalse);
+  });
+
+  testWidgets('denied microphone: error status and a button to the app settings', (tester) async {
+    await repo.setApiKey('my-key');
+    final provider = _MicDeniedProvider(repo);
+    await tester.pumpWidget(ChangeNotifierProvider<TranslationProvider>.value(
+      value: provider,
+      child: _app(home: HomeScreen(settingsRepository: repo, regionDetector: _FakeDetector(SonioxKeyCheck.eu))),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Kein Zugriff aufs Mikrofon'), findsOneWidget);
+    expect(find.text('App-Einstellungen öffnen'), findsOneWidget);
   });
 }

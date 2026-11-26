@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart' show openAppSettings;
 import 'package:provider/provider.dart';
 
 import '../../core/network/soniox_region.dart';
@@ -105,9 +106,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             )
-          : Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), child: _buildTranslator(expandTranscript: true)),
+          : LayoutBuilder(
+              // Low screens (small phones, landscape): the stage leaves too little room for the
+              // transcript, so scroll with a fixed transcript height instead of overflowing.
+              builder: (context, constraints) => constraints.maxHeight < _minExpandedHeight
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      child: _buildTranslator(expandTranscript: false),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      child: _buildTranslator(expandTranscript: true),
+                    ),
+            ),
     );
   }
+
+  /// Below this body height the translator scrolls instead of stretching the transcript.
+  static const double _minExpandedHeight = 600;
 
   Widget _buildTranslator({required bool expandTranscript}) {
     return Consumer<TranslationProvider>(
@@ -123,6 +139,17 @@ class _HomeScreenState extends State<HomeScreen> {
             Center(child: _stage(provider)),
             const SizedBox(height: 14),
             Center(child: _statusPill(provider)),
+            // Android asks only twice; after that the mic can only be allowed in the app settings.
+            if (provider.status == TranslationStatus.micPermissionDenied) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: openAppSettings,
+                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  label: Text(AppLocalizations.of(context).homeOpenAppSettings),
+                ),
+              ),
+            ],
             if (_debugMode && isTranslating) ...[const SizedBox(height: 12), _bufferCard(provider)],
             const SizedBox(height: 20),
             if (expandTranscript) Expanded(child: transcript) else SizedBox(height: 200, child: transcript),

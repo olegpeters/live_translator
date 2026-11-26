@@ -35,6 +35,7 @@
   "statusInitializing": "Инициализация...",
   "statusStartFailed": "Ошибка запуска: {error}",
   "statusMicPermissionDenied": "Нет доступа к микрофону. Разрешите его в настройках приложения Android.",
+  "homeOpenAppSettings": "Открыть настройки приложения",
   "statusStopping": "Остановка...",
   "langGerman": "Немецкий",
   "langEnglish": "Английский",

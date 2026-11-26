@@ -35,6 +35,7 @@
   "statusInitializing": "Initialisation...",
   "statusStartFailed": "Échec du démarrage : {error}",
   "statusMicPermissionDenied": "Accès au micro refusé. Autorisez-le dans les paramètres de l’app Android.",
+  "homeOpenAppSettings": "Ouvrir les paramètres de l’app",
   "statusStopping": "Arrêt...",
   "langGerman": "Allemand",
   "langEnglish": "Anglais",

@@ -35,6 +35,7 @@
   "statusInitializing": "Initialisiere...",
   "statusStartFailed": "Fehler beim Starten: {error}",
   "statusMicPermissionDenied": "Kein Zugriff aufs Mikrofon. Bitte in den Android-App-Einstellungen erlauben.",
+  "homeOpenAppSettings": "App-Einstellungen öffnen",
   "statusStopping": "Stoppe...",
   "langGerman": "Deutsch",
   "langEnglish": "Englisch",
