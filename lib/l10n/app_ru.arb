@@ -11,7 +11,7 @@
   "homeTapToStart": "Нажмите, чтобы начать",
   "homeTapToStop": "Нажмите, чтобы остановить",
   "homeMicLevel": "Уровень микрофона",
-  "homeTranscriptTitle": "Перевод ({language})",
+  "homeTranscriptTitle": "Перевод",
   "homeClearText": "Очистить текст",
   "homeSpeechToggle": "Озвучка",
   "homeSpeechOnTooltip": "Озвучка включена: нажмите, чтобы оставить только текст",

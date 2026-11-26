@@ -43,9 +43,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeMicLevel => 'Microphone level';
 
   @override
-  String homeTranscriptTitle(String language) {
-    return 'Translation ($language)';
-  }
+  String get homeTranscriptTitle => 'Translation';
 
   @override
   String get homeClearText => 'Clear text';

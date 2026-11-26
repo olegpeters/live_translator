@@ -11,14 +11,7 @@
   "homeTapToStart": "Tap to start",
   "homeTapToStop": "Tap to stop",
   "homeMicLevel": "Microphone level",
-  "homeTranscriptTitle": "Translation ({language})",
-  "@homeTranscriptTitle": {
-    "placeholders": {
-      "language": {
-        "type": "String"
-      }
-    }
-  },
+  "homeTranscriptTitle": "Translation",
   "homeClearText": "Clear text",
   "homeSpeechToggle": "Read aloud",
   "homeSpeechOnTooltip": "Reading aloud is on: tap to show text only",

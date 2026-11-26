@@ -43,9 +43,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeMicLevel => 'Уровень микрофона';
 
   @override
-  String homeTranscriptTitle(String language) {
-    return 'Перевод ($language)';
-  }
+  String get homeTranscriptTitle => 'Перевод';
 
   @override
   String get homeClearText => 'Очистить текст';

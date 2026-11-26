@@ -11,7 +11,7 @@
   "homeTapToStart": "Toca para empezar",
   "homeTapToStop": "Toca para detener",
   "homeMicLevel": "Nivel del micrófono",
-  "homeTranscriptTitle": "Traducción ({language})",
+  "homeTranscriptTitle": "Traducción",
   "homeClearText": "Borrar texto",
   "homeSpeechToggle": "Voz alta",
   "homeSpeechOnTooltip": "Lectura activada: toca para ver solo el texto",

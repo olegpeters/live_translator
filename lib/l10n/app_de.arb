@@ -11,7 +11,7 @@
   "homeTapToStart": "Tippen zum Starten",
   "homeTapToStop": "Tippen zum Stoppen",
   "homeMicLevel": "Mikrofon-Pegel",
-  "homeTranscriptTitle": "Übersetzung ({language})",
+  "homeTranscriptTitle": "Übersetzung",
   "homeClearText": "Text leeren",
   "homeSpeechToggle": "Vorlesen",
   "homeSpeechOnTooltip": "Vorlesen ist an: tippen für nur Text",

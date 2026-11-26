@@ -43,9 +43,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get homeMicLevel => 'Niveau du micro';
 
   @override
-  String homeTranscriptTitle(String language) {
-    return 'Traduction ($language)';
-  }
+  String get homeTranscriptTitle => 'Traduction';
 
   @override
   String get homeClearText => 'Effacer le texte';

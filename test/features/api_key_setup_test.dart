@@ -124,7 +124,7 @@ void main() {
     await tester.tap(find.text('Verstanden'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Übersetzung (Russisch)'), findsOneWidget);
+    expect(find.text('Übersetzung'), findsOneWidget);
   });
 
   for (final locale in AppLocalizations.supportedLocales) {
@@ -137,7 +137,7 @@ void main() {
       expect(find.byTooltip(l.homeSourceLanguage), findsOneWidget);
       expect(find.text(l.statusIdle), findsOneWidget);
       expect(find.text(l.langAuto), findsOneWidget); // source language defaults to automatic
-      expect(find.text(l.homeTranscriptTitle(l.langRussian)), findsOneWidget);
+      expect(find.text(l.homeTranscriptTitle), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

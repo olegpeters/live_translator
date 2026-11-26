@@ -441,7 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Expanded(
                 child: Text(
-                  l.homeTranscriptTitle(languageName(l, _targetLanguage)),
+                  l.homeTranscriptTitle,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant),
                 ),

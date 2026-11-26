@@ -173,8 +173,8 @@ abstract class AppLocalizations {
   /// No description provided for @homeTranscriptTitle.
   ///
   /// In en, this message translates to:
-  /// **'Translation ({language})'**
-  String homeTranscriptTitle(String language);
+  /// **'Translation'**
+  String get homeTranscriptTitle;
 
   /// No description provided for @homeClearText.
   ///
