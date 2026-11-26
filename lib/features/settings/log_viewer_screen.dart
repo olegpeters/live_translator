@@ -174,7 +174,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               ),
             ],
           ),
-          body: Column(
+          // Android 15+ draws edge to edge: keep the content clear of the navigation bar.
+          body: SafeArea(top: false, child: Column(
             children: [
               // Header Session Info
               Container(
@@ -429,7 +430,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 ),
               ),
             ],
-          ),
+          )),
         );
       },
     );

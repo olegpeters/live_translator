@@ -179,7 +179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              // Android 15+ draws edge to edge: scroll the content clear of the navigation bar.
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewPaddingOf(context).bottom),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -279,4 +279,21 @@ void main() {
     expect(await repo.getTargetLanguage(), 'ar');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('edge to edge (Android 15+): the transcript stays above the navigation bar', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+    addTearDown(tester.view.reset);
+    await repo.setApiKey('my-key');
+    await tester.pumpWidget(home(_FakeDetector(SonioxKeyCheck.eu)));
+    await tester.pumpAndSettle();
+
+    final placeholder = find.textContaining('Die übersetzten Sätze erscheinen hier');
+    expect(placeholder, findsOneWidget);
+    final card = find.ancestor(of: placeholder, matching: find.byType(Container)).first;
+    expect(tester.getBottomLeft(card).dy, lessThanOrEqualTo(740 - 48));
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -78,47 +78,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : _showSetup
-          ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ApiKeySetup(
-                        settingsRepository: settingsRepository,
-                        regionDetector: _regionDetector,
-                        onDone: () => setState(() => _showSetup = false),
+      body: SafeArea(
+        // Android 15+ draws edge to edge: keep content clear of the navigation bar.
+        top: false,
+        child: !_loaded
+            ? const Center(child: CircularProgressIndicator())
+            : _showSetup
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: ApiKeySetup(
+                          settingsRepository: settingsRepository,
+                          regionDetector: _regionDetector,
+                          onDone: () => setState(() => _showSetup = false),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Preview of the translator: visible but read-only until a key is set up.
-                  ExcludeSemantics(
-                    child: IgnorePointer(
-                      child: Opacity(opacity: 0.45, child: _buildTranslator(expandTranscript: false)),
+                    const SizedBox(height: 16),
+                    // Preview of the translator: visible but read-only until a key is set up.
+                    ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: Opacity(opacity: 0.45, child: _buildTranslator(expandTranscript: false)),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            : LayoutBuilder(
+                // Low screens (small phones, landscape): the stage leaves too little room for the
+                // transcript, so scroll with a fixed transcript height instead of overflowing.
+                builder: (context, constraints) => constraints.maxHeight < _minExpandedHeight
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        child: _buildTranslator(expandTranscript: false),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        child: _buildTranslator(expandTranscript: true),
+                      ),
               ),
-            )
-          : LayoutBuilder(
-              // Low screens (small phones, landscape): the stage leaves too little room for the
-              // transcript, so scroll with a fixed transcript height instead of overflowing.
-              builder: (context, constraints) => constraints.maxHeight < _minExpandedHeight
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                      child: _buildTranslator(expandTranscript: false),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                      child: _buildTranslator(expandTranscript: true),
-                    ),
-            ),
+      ),
     );
   }
 
@@ -291,7 +295,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: BoxShape.circle,
                     gradient: AppTheme.brandGradient,
                     boxShadow: [
-                      BoxShadow(color: AppTheme.violet.withValues(alpha: 0.28), blurRadius: 24, offset: const Offset(0, 4)),
+                      BoxShadow(
+                        color: AppTheme.violet.withValues(alpha: 0.28),
+                        blurRadius: 24,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
                   child: AnimatedSwitcher(
