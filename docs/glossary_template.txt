@@ -1,0 +1,86 @@
+# =============================================================================================
+# Vorlage für ein Glossar-Preset (Auditorium)
+#
+# Für Agenten: Diese Datei kopieren nach assets/glossary/<thema>.txt (Kleinbuchstaben, "_"),
+# Platzhalter <...> ersetzen und alle Kommentarblöcke mit "VORLAGE:" löschen.
+# Parser: lib/core/translation/glossary.dart (Glossary.parse); Beispiel: adventist_sermon.txt
+# =============================================================================================
+#
+# VORLAGE: Format
+#   - Eine Angabe pro Zeile; Leerzeilen und Zeilen mit "#" werden ignoriert.
+#   - Abschnitte: [general], [terms], [<zielsprache>] (Kleinbuchstaben). Vor dem ersten
+#     Abschnitt gilt [terms].
+#   - [general]        Schlüssel = Wert     Thema/Domäne für die Spracherkennung (2–4 Zeilen)
+#   - [terms]          Begriff              Erkennungshilfe in der GESPROCHENEN Sprache, gilt
+#                                           für alle Zielsprachen
+#   - [ru] [uk] [en] [es] [fr] [ar] [de]
+#                      Quelle = Ziel        feste Übersetzung, nur für diese Zielsprache;
+#                                           die Quelle wird automatisch auch Erkennungshilfe
+#   - Trenner: "=" (auch "->" oder "=>"); links und rechts darf es selbst nicht vorkommen.
+#
+# VORLAGE: Regeln für den Inhalt
+#   1. Quellbegriffe in der gesprochenen Sprache des Vortrags (bisher Deutsch), genau so
+#      geschrieben, wie sie gesprochen werden (z. B. "1. Mose", nicht "Gen").
+#   2. Nur eindeutige Fachbegriffe, Namen, Titel und feste Wendungen. KEINE festen Paare für
+#      mehrdeutige Alltagswörter (z. B. "Richter", "Verband"); die höchstens unter [terms]
+#      oder nur als eindeutige Zusammensetzung ("Norddeutscher Verband").
+#   3. Jeder Sprachabschnitt enthält DIESELBEN Quellbegriffe in derselben Reihenfolge
+#      (der Test vergleicht das). Wo es keine feste Übersetzung braucht, Begriff unter [terms].
+#   4. Ziel = übliche Fachsprache der Zielsprache (bei Bibeltexten die verbreitete Übersetzung
+#      angeben, z. B. "# Bibelbücher (Reina-Valera 1960)"); Buchtitel mit den Anführungszeichen
+#      der Zielsprache (« » / „ “ / " ").
+#   5. Unsichere Übersetzungen mit "# prüfen: ..." kommentieren statt raten.
+#   6. Kein [de]-Abschnitt, solange die Quellbegriffe deutsch sind (Deutsch → Deutsch ist sinnlos).
+#   7. Größe: pro Zielsprache unter ~6000 geschätzten Tokens (Soniox-Limit 8000 für den
+#      ganzen Kontext inkl. eigenem Glossar); ca. 150–250 Begriffe sind ein guter Rahmen.
+#
+# VORLAGE: Einbinden in die App
+#   - lib/core/storage/settings_repository.dart: glossaryPresetAssets um '<id>': 'assets/glossary/<thema>.txt'
+#   - lib/l10n/app_{en,de,ru,es,fr}.arb: "settingsGlossaryPreset<Id>" (Name) und bei Bedarf
+#     einen Hinweistext; danach `flutter gen-l10n`
+#   - lib/features/settings/settings_screen.dart: DropdownMenuItem(value: '<id>', ...) ergänzen
+#   - test/core/translation/glossary_test.dart: Test wie für adventist_sermon.txt (parst,
+#     Größe < 6000 je Sprache, gleiche Quellen in allen Sprachabschnitten)
+# =============================================================================================
+
+# Glossar-Preset: <Titel, z. B. "Medizinischer Fachvortrag">
+# <1–2 Sätze: Anlass, Fachgebiet, Zielgruppe>
+#
+# Bewusst KEINE festen Paare für: <mehrdeutige Wörter, die nur Erkennungshilfe sind>
+
+[general]
+domain = <z. B. Fachvortrag, Konferenz>
+topic = <z. B. Kardiologie, Notfallmedizin>
+setting = <z. B. Ärztekongress, Fortbildung>
+
+[terms]
+# <Gruppe, z. B. Fachbegriffe>
+<Begriff>
+<Begriff>
+# <Gruppe, z. B. Namen>
+<Name>
+
+[ru]
+# <Gruppe> (<Quelle/Konvention, z. B. Synodalübersetzung>)
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>
+
+[uk]
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>
+
+[en]
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>
+
+[es]
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>
+
+[fr]
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>
+
+[ar]
+<Quelle> = <Ziel>
+<Quelle> = <Ziel>

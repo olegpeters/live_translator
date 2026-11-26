@@ -75,3 +75,7 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - No user-visible strings in providers/services: `TranslationProvider` exposes `TranslationStatus` (+ error / attempt),
   the home screen localizes it. `LogReport.share` takes the localized subject/text from the caller.
 - Android notification texts: `android/app/src/main/res/values*/strings.xml`.
+
+## 9. Glossaries
+- Presets live in `assets/glossary/*.txt` (bundled). New presets: follow `docs/glossary_template.txt`
+  (format, content rules, how to register the preset and test it).
