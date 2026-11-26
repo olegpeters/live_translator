@@ -44,12 +44,22 @@ void main() {
 
   test('bundled sermon preset parses and stays well below the Soniox context limit', () {
     final raw = File('assets/glossary/adventist_sermon.txt').readAsStringSync();
-    for (final lang in ['ru', 'en', 'uk', 'es', 'fr']) {
+    final ruSources = Glossary.parse(raw, targetLanguage: 'ru').translationTerms.map((t) => t.source).toList();
+    for (final lang in ['ru', 'en', 'uk', 'es', 'fr', 'ar', 'de']) {
       final g = Glossary.parse(raw, targetLanguage: lang);
       expect(g.terms.length, greaterThan(150), reason: lang);
       expect(g.general, isNotEmpty);
       expect(g.estimatedTokens, lessThan(6000), reason: lang);
+      // every target language (German excepted: the sources are German) has the same fixed translations
+      if (lang != 'de') {
+        expect(g.translationTerms.map((t) => t.source).toList(), ruSources, reason: lang);
+        expect(g.translationTerms.where((t) => t.target.isEmpty), isEmpty, reason: lang);
+      }
     }
+    final ar = Glossary.parse(raw, targetLanguage: 'ar');
+    expect(ar.translationTerms.firstWhere((t) => t.source == 'Sabbat').target, 'السبت');
+    final es = Glossary.parse(raw, targetLanguage: 'es');
+    expect(es.translationTerms.firstWhere((t) => t.source == 'Der große Kampf').target, '«El conflicto de los siglos»');
     final ru = Glossary.parse(raw, targetLanguage: 'ru');
     expect(ru.translationTerms.firstWhere((t) => t.source == 'Der große Kampf').target, '«Великая борьба»');
     expect(ru.translationTerms.firstWhere((t) => t.source == 'Generalkonferenz').target, 'Генеральная Конференция');
