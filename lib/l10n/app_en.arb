@@ -20,6 +20,9 @@
     }
   },
   "homeClearText": "Clear text",
+  "homeSpeechToggle": "Read aloud",
+  "homeSpeechOnTooltip": "Reading aloud is on: tap to show text only",
+  "homeSpeechOffTooltip": "Read the translation aloud (headphones)",
   "homeTranscriptPlaceholder": "The translated sentences appear here live during the talk...",
   "homeSourceTranscriptTitle": "Recognized source text – diagnostics",
   "homeSourceTranscriptPlaceholder": "The original text recognized by the model appears here...",

@@ -145,6 +145,61 @@ void main() {
       await regional.dispose();
     });
 
+    test('reading aloud off: no TTS connection, translations are text only', () async {
+      final hosts = <String>[];
+      final textOnly = SonioxRealtimeTranslationService(
+        channelFactory: (uri, headers) {
+          hosts.add(uri.host);
+          return uri.host.contains('stt-rt') ? sttChannel : ttsChannel;
+        },
+      );
+      await textOnly.connect(apiKey: 'k', targetLanguage: 'ru', speechEnabled: false);
+      expect(hosts, ['stt-rt.eu.soniox.com']);
+
+      final text = textOnly.onTranscriptDelta.first;
+      sendTranslation(sttChannel, 'Доброе утро. ');
+      sendEnd(sttChannel);
+      expect(await text, 'Доброе утро. ');
+      await pump();
+      expect(ttsChannel.rawSent, isEmpty);
+      await textOnly.dispose();
+    });
+
+    test('switching reading aloud on speaks the resume text first, then continues live', () async {
+      await service.connect(apiKey: 'k', targetLanguage: 'ru', speechEnabled: false);
+      sendTranslation(sttChannel, 'Первое. Второе предложение. Третье ');
+      await pump();
+      expect(ttsChannel.rawSent, isEmpty);
+
+      await service.setSpeechEnabled(true, resumeText: 'Второе предложение. Третье ');
+      sendTranslation(sttChannel, 'идёт дальше.');
+      sendEnd(sttChannel);
+      await pump();
+
+      final texts = ttsChannel.jsonSent.where((m) => m.containsKey('text')).toList();
+      final streams = <String, String>{};
+      for (final m in texts) {
+        streams[m['stream_id'] as String] = (streams[m['stream_id']] ?? '') + (m['text'] as String);
+      }
+      expect(streams.values.toList(), ['Второе предложение.', 'Третье идёт дальше.']);
+    });
+
+    test('switching reading aloud off closes the TTS connection and stops feeding it', () async {
+      await service.connect(apiKey: 'k', targetLanguage: 'ru');
+      sendTranslation(sttChannel, 'Раз два ');
+      await pump();
+      final sentBefore = ttsChannel.rawSent.length;
+      expect(sentBefore, greaterThan(0));
+
+      await service.setSpeechEnabled(false);
+      expect(ttsChannel.fakeSink.closed, isTrue);
+      sendTranslation(sttChannel, 'три. Четыре. ');
+      sendEnd(sttChannel);
+      await pump();
+      expect(ttsChannel.rawSent.length, sentBefore);
+      expect(service.speechEnabled, isFalse);
+    });
+
     test('connect sends STT config and TTS config', () async {
       final connected = service.connect(
         apiKey: 'soniox-test-key',

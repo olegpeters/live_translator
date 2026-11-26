@@ -51,6 +51,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get homeClearText => 'Text leeren';
 
   @override
+  String get homeSpeechToggle => 'Vorlesen';
+
+  @override
+  String get homeSpeechOnTooltip => 'Vorlesen ist an: tippen für nur Text';
+
+  @override
+  String get homeSpeechOffTooltip => 'Übersetzung vorlesen lassen (Kopfhörer)';
+
+  @override
   String get homeTranscriptPlaceholder =>
       'Die übersetzten Sätze erscheinen hier live während des Vortrags...';
 

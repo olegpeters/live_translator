@@ -97,6 +97,17 @@ class TtsStreamManager {
     _streamIndex = 1;
   }
 
+  /// Forgets all streams (their connection was closed, e.g. reading aloud switched off).
+  /// Unlike [resetSession], stream indices continue, so later audio is not taken for late chunks.
+  void abandonAll() {
+    for (final s in _streams.values) {
+      s.endFallback?.cancel();
+    }
+    _streams.clear();
+    _waiting.clear();
+    _open = null;
+  }
+
   void sendPiece(TextPiece piece) {
     var stream = _open;
     if (stream == null) {

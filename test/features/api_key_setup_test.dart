@@ -296,4 +296,28 @@ void main() {
     expect(tester.getBottomLeft(card).dy, lessThanOrEqualTo(740 - 48));
     expect(tester.takeException(), isNull);
   });
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    testWidgets('reading aloud: visible on home, off by default, saved when switched (${locale.languageCode})',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await repo.setApiKey('my-key');
+      await tester.pumpWidget(home(_FakeDetector(SonioxKeyCheck.eu), locale: locale));
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const ValueKey('speechToggle'));
+      expect(toggle, findsOneWidget);
+      expect(find.text(lookupAppLocalizations(locale).homeSpeechToggle), findsOneWidget);
+      expect(tester.widget<FilterChip>(toggle).selected, isFalse);
+      expect(await repo.getSpeechEnabled(), isFalse);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilterChip>(toggle).selected, isTrue);
+      expect(await repo.getSpeechEnabled(), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

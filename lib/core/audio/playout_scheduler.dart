@@ -240,6 +240,13 @@ class PlayoutScheduler {
     await _output?.stop();
   }
 
+  /// Drops everything queued or buffered and silences the output at once; playback stays ready
+  /// for new segments (e.g. reading aloud switched off).
+  Future<void> clear() async {
+    reset();
+    await _output?.flush();
+  }
+
   /// Plays everything queued without further start delays (e.g. translation stopping).
   void flushPreRoll() {
     _flushAll = true;

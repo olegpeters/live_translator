@@ -50,6 +50,11 @@ Pipeline: Mic (`AudioService`, record) → Soniox STT + translation (`SonioxReal
 - **Home:** language pill (spoken → target, locked while translating), big brand-gradient start/stop button with the
   mic level as a ring *outside* the button (stays visible while it shows stop), status pill with running time while
   live, translated text in one uniform style (no fading of older sentences).
+- **Reading aloud** ("Vorlesen" chip in the transcript header) is off by default (text only, saved setting).
+  Off: no TTS WebSocket at all (no TTS cost), tokens don't reach the segmenter. Switching on while live opens TTS
+  and first speaks `speechResumeText` (last complete sentence + sentence in progress), then continues live;
+  switching off clears playout (`PlayoutScheduler.clear`) and closes TTS (`TtsStreamManager.abandonAll` keeps
+  stream indices monotonic).
   Without an API key the `ApiKeySetup` card sits on top and the translator below is greyed out and read-only;
   the key is checked (region) on OK, saved if accepted, and the region hint stays until "Verstanden".
 - **Debug mode** (settings switch, off by default): shows the TTS buffer/latency card and the technical options

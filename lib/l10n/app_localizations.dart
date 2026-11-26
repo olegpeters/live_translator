@@ -182,6 +182,24 @@ abstract class AppLocalizations {
   /// **'Clear text'**
   String get homeClearText;
 
+  /// No description provided for @homeSpeechToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read aloud'**
+  String get homeSpeechToggle;
+
+  /// No description provided for @homeSpeechOnTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading aloud is on: tap to show text only'**
+  String get homeSpeechOnTooltip;
+
+  /// No description provided for @homeSpeechOffTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the translation aloud (headphones)'**
+  String get homeSpeechOffTooltip;
+
   /// No description provided for @homeTranscriptPlaceholder.
   ///
   /// In en, this message translates to:

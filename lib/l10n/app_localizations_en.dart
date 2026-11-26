@@ -51,6 +51,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeClearText => 'Clear text';
 
   @override
+  String get homeSpeechToggle => 'Read aloud';
+
+  @override
+  String get homeSpeechOnTooltip =>
+      'Reading aloud is on: tap to show text only';
+
+  @override
+  String get homeSpeechOffTooltip => 'Read the translation aloud (headphones)';
+
+  @override
   String get homeTranscriptPlaceholder =>
       'The translated sentences appear here live during the talk...';
 

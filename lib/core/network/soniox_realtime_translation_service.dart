@@ -105,6 +105,7 @@ class SonioxRealtimeTranslationService {
   bool _enableSourceTranscription = false;
   String? _sourceLanguage;
   Glossary _glossary = const Glossary();
+  bool _speechEnabled = true;
   int _ignoredTokens = 0;
   Timer? _keepAliveTimer;
   int _ttsReconnectAttempts = 0;
@@ -183,6 +184,8 @@ class SonioxRealtimeTranslationService {
     Glossary glossary = const Glossary(),
     /// Region of the API key's Soniox project; null keeps the previous one (reconnects).
     SonioxRegion? region,
+    /// Read the translation aloud (TTS connection); without it only text is produced.
+    bool speechEnabled = true,
   }) async {
     if (_currentState == TranslationConnectionState.connecting) {
       _log('Connect already in progress; waiting for ready');
@@ -201,6 +204,7 @@ class SonioxRealtimeTranslationService {
     _enableSourceTranscription = enableSourceTranscription;
     _sourceLanguage = sourceLanguage;
     _glossary = glossary;
+    _speechEnabled = speechEnabled;
     if (newSession) {
       // Stream indices stay monotonic across reconnects within a session:
       // the playout scheduler drops audio of segments it has already finished.
@@ -227,7 +231,9 @@ class SonioxRealtimeTranslationService {
     try {
       // 1. STT + translation, 2. TTS
       _sttChannel = openSonioxChannel(Uri.parse(_region.sttUrl), apiKey, factory: channelFactory);
-      _ttsChannel = openSonioxChannel(Uri.parse(_region.ttsUrl), apiKey, factory: channelFactory);
+      if (_speechEnabled) {
+        _ttsChannel = openSonioxChannel(Uri.parse(_region.ttsUrl), apiKey, factory: channelFactory);
+      }
 
       // Listen to STT stream
       _sttSubscription = _sttChannel!.stream.listen(
@@ -247,10 +253,12 @@ class SonioxRealtimeTranslationService {
         },
       );
 
-      _listenTts();
-      if (!newSession) {
-        // New TTS connection: re-send streams that had not produced audio yet.
-        _tts.onConnectionReset();
+      if (_speechEnabled) {
+        _listenTts();
+        if (!newSession) {
+          // New TTS connection: re-send streams that had not produced audio yet.
+          _tts.onConnectionReset();
+        }
       }
 
       // Send initial STT configuration
@@ -359,7 +367,7 @@ class SonioxRealtimeTranslationService {
   }
 
   Future<void> _reconnectTtsChannel() async {
-    if (_currentState != TranslationConnectionState.connected || _apiKey.isEmpty) return;
+    if (!_speechEnabled || _currentState != TranslationConnectionState.connected || _apiKey.isEmpty) return;
     if (_ttsReconnectAttempts >= 5) {
       _log('TTS reconnect: giving up after $_ttsReconnectAttempts attempts');
       return;
@@ -447,8 +455,10 @@ class SonioxRealtimeTranslationService {
       final bool isFinal = tokenObj['is_final'] as bool? ?? tokenObj['final'] as bool? ?? true;
 
       if (text == '<end>') {
-        _log('Utterance end marker <end> detected; closing TTS segment');
-        _segmenter.endOfUtterance();
+        if (_speechEnabled) {
+          _log('Utterance end marker <end> detected; closing TTS segment');
+          _segmenter.endOfUtterance();
+        }
         continue;
       }
       if (text.isEmpty) continue;
@@ -476,7 +486,7 @@ class SonioxRealtimeTranslationService {
                 DateTime.now().difference(_lastInputAudioSentTime!).inMilliseconds / 1000.0;
           }
           finalTarget.write(text);
-          _segmenter.addToken(text);
+          if (_speechEnabled) _segmenter.addToken(text);
         } else {
           provisionalTarget.write(text);
         }
@@ -615,6 +625,38 @@ class SonioxRealtimeTranslationService {
     final Uint8List frame = Uint8List(frameBytes);
     frame.setRange(0, rest.length, rest);
     _sendFrame(frame);
+  }
+
+  bool get speechEnabled => _speechEnabled;
+
+  /// Switches reading aloud on or off during a session.
+  ///
+  /// Off: closes the TTS connection and forgets its streams (no further TTS cost).
+  /// On: opens the TTS connection and speaks [resumeText] first (typically the last translated
+  /// sentence plus the sentence in progress), then continues with new translations.
+  Future<void> setSpeechEnabled(bool enabled, {String resumeText = ''}) async {
+    if (enabled == _speechEnabled) return;
+    _speechEnabled = enabled;
+    _log('Reading aloud ${enabled ? 'on' : 'off'}');
+    if (!enabled) {
+      final sub = _ttsSubscription;
+      final channel = _ttsChannel;
+      _ttsSubscription = null;
+      _ttsChannel = null;
+      _segmenter.reset();
+      _tts.abandonAll();
+      await sub?.cancel();
+      try {
+        await channel?.sink.close();
+      } catch (_) {}
+      return;
+    }
+    if (_currentState != TranslationConnectionState.connected) return; // next connect opens TTS
+    _ttsReconnectAttempts = 0;
+    _segmenter.reset();
+    _ttsChannel = openSonioxChannel(Uri.parse(_region.ttsUrl), _apiKey, factory: channelFactory);
+    _listenTts();
+    if (resumeText.trim().isNotEmpty) _segmenter.addToken(resumeText);
   }
 
   Future<void> gracefulStop() async {

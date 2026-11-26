@@ -15,6 +15,7 @@ import '../../core/network/soniox_realtime_translation_service.dart';
 import '../../core/network/soniox_region.dart' show SonioxRegionDetector, SonioxKeyCheck;
 import '../../core/storage/settings_repository.dart';
 import '../../core/translation/glossary.dart';
+import 'speech_resume.dart';
 import 'transcript_model.dart';
 
 /// Translation status shown on the home screen (localized there).
@@ -60,6 +61,7 @@ class TranslationProvider extends ChangeNotifier {
   final TranscriptModel _sourceTranscript = TranscriptModel();
   double _audioLevel = 0.0;
   bool _enableSourceTranscription = false;
+  bool _speechEnabled = false;
   String _ttsEngine = 'soniox';
   String _sentenceBuffer = '';
   Timer? _sentenceInactivityTimer;
@@ -85,6 +87,9 @@ class TranslationProvider extends ChangeNotifier {
   String get sourceTranscript => _sourceTranscript.text;
   double get audioLevel => _audioLevel;
   bool get enableSourceTranscription => _enableSourceTranscription;
+
+  /// Translation is read aloud (otherwise text only). Off by default; switchable while live.
+  bool get speechEnabled => _speechEnabled;
   TranslationConnectionState get connectionState => _connectionState;
 
   double get phoneBufferSeconds =>
@@ -124,6 +129,10 @@ class TranslationProvider extends ChangeNotifier {
     });
     settingsRepository.getTtsEngine().then((engine) {
       _ttsEngine = engine;
+    });
+    settingsRepository.getSpeechEnabled().then((enabled) {
+      _speechEnabled = enabled;
+      notifyListeners();
     });
   }
 
@@ -175,7 +184,7 @@ class TranslationProvider extends ChangeNotifier {
 
     _audioPlaybackSubscription =
         translationService.onAudioDelta.listen((delta) {
-      if (_ttsEngine == 'soniox') {
+      if (_ttsEngine == 'soniox' && _speechEnabled) {
         if (delta.measuredLatencySeconds != null && delta.measuredLatencySeconds! > 0) {
           playoutScheduler.reportSectionLatency(delta.measuredLatencySeconds!);
         }
@@ -195,7 +204,7 @@ class TranslationProvider extends ChangeNotifier {
     // Final translated text only (drives onboard TTS).
     _transcriptSubscription =
         translationService.onTranscriptDelta.listen((textDelta) {
-      if (_ttsEngine == 'onboard') {
+      if (_ttsEngine == 'onboard' && _speechEnabled) {
         _sentenceBuffer += textDelta;
         _restartSentenceInactivityTimer();
         _processSentenceBuffer(force: false);
@@ -321,6 +330,7 @@ class TranslationProvider extends ChangeNotifier {
               newSession: false,
               sourceLanguage: await _sourceLanguageHint(),
               glossary: await _buildGlossary(targetLanguage),
+              speechEnabled: _speechEnabled && _ttsEngine == 'soniox',
             );
             _reconnectAttempts = 0;
             return;
@@ -374,6 +384,7 @@ class TranslationProvider extends ChangeNotifier {
     _ttsEngine = await settingsRepository.getTtsEngine();
     _enableSourceTranscription =
         await settingsRepository.getEnableSourceTranscription();
+    _speechEnabled = await settingsRepository.getSpeechEnabled();
     playoutScheduler.outputGain = await settingsRepository.getOutputGain();
     final voiceProcessingMode = await settingsRepository.getVoiceProcessingMode();
     final headphones = await AndroidPlatform.isHeadphoneConnected();
@@ -384,7 +395,7 @@ class TranslationProvider extends ChangeNotifier {
     };
 
     AppLogger.info(
-      'Start translation (lang=$targetLanguage, voice=$voice, ttsEngine=$_ttsEngine, gain=${playoutScheduler.outputGain}x, voiceProcessing=${audioService.voiceProcessing} (mode $voiceProcessingMode, headphones=$headphones))',
+      'Start translation (lang=$targetLanguage, speech=$_speechEnabled, voice=$voice, ttsEngine=$_ttsEngine, gain=${playoutScheduler.outputGain}x, voiceProcessing=${audioService.voiceProcessing} (mode $voiceProcessingMode, headphones=$headphones))',
       tag: 'TranslationProvider',
     );
 
@@ -423,6 +434,8 @@ class TranslationProvider extends ChangeNotifier {
         sourceLanguage: await _sourceLanguageHint(),
         glossary: await _buildGlossary(targetLanguage),
         region: region,
+        // Soniox TTS only while reading aloud (the onboard engine speaks locally).
+        speechEnabled: _speechEnabled && _ttsEngine == 'soniox',
       );
 
       // Start audio recording and stream chunks to network continuously.
@@ -446,6 +459,35 @@ class TranslationProvider extends ChangeNotifier {
       await _enableWakeLock(false);
       notifyListeners();
     }
+  }
+
+  /// Switches reading aloud on or off (saved). While translating, switching on first speaks the
+  /// last translated sentence (plus the sentence in progress), then continues live; switching
+  /// off silences playback at once and closes the TTS connection.
+  Future<void> setSpeechEnabled(bool enabled) async {
+    if (enabled == _speechEnabled) return;
+    _speechEnabled = enabled;
+    notifyListeners();
+    await settingsRepository.setSpeechEnabled(enabled);
+    if (!_isTranslating || _isStopping) return;
+
+    final resume = enabled ? speechResumeText(_targetTranscript.finalText) : '';
+    AppLogger.info('Reading aloud ${enabled ? 'on' : 'off'} while live (resume ${resume.length} chars)',
+        tag: 'TranslationProvider');
+    if (_ttsEngine == 'onboard') {
+      _sentenceInactivityTimer?.cancel();
+      _sentenceBuffer = '';
+      if (enabled) {
+        _sentenceBuffer = resume;
+        _restartSentenceInactivityTimer();
+        _processSentenceBuffer(force: false);
+      } else {
+        await onboardTtsService.stop();
+      }
+      return;
+    }
+    if (!enabled) await playoutScheduler.clear();
+    await translationService.setSpeechEnabled(enabled, resumeText: resume);
   }
 
   Future<void> stopTranslation() async {

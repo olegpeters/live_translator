@@ -51,6 +51,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get homeClearText => 'Effacer le texte';
 
   @override
+  String get homeSpeechToggle => 'Lecture audio';
+
+  @override
+  String get homeSpeechOnTooltip =>
+      'Lecture audio activée : touchez pour n’afficher que le texte';
+
+  @override
+  String get homeSpeechOffTooltip =>
+      'Lire la traduction à voix haute (écouteurs)';
+
+  @override
   String get homeTranscriptPlaceholder =>
       'Les phrases traduites apparaissent ici en direct pendant la conférence...';
 

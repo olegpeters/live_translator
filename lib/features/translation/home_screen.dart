@@ -392,6 +392,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Reading aloud on/off, right at the text it reads (off by default; switchable while live).
+  Widget _speechToggle(TranslationProvider provider) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final on = provider.speechEnabled;
+    return Tooltip(
+      message: on ? l.homeSpeechOnTooltip : l.homeSpeechOffTooltip,
+      child: FilterChip(
+        key: const ValueKey('speechToggle'),
+        selected: on,
+        showCheckmark: false,
+        avatar: Icon(
+          on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+          size: 18,
+          color: on ? scheme.onPrimary : scheme.onSurfaceVariant,
+        ),
+        label: Text(l.homeSpeechToggle, overflow: TextOverflow.ellipsis, maxLines: 1),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: on ? scheme.onPrimary : scheme.onSurface,
+        ),
+        selectedColor: scheme.primary,
+        side: BorderSide(color: on ? scheme.primary : scheme.outline),
+        shape: const StadiumBorder(),
+        visualDensity: VisualDensity.compact,
+        onSelected: provider.setSpeechEnabled,
+      ),
+    );
+  }
+
   /// Translation in one uniform, readable style (no fading of older sentences).
   Widget _transcriptCard(TranslationProvider provider) {
     final l = AppLocalizations.of(context);
@@ -416,6 +446,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant),
                 ),
               ),
+              const SizedBox(width: 8),
+              Flexible(child: _speechToggle(provider)),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 color: scheme.onSurfaceVariant,

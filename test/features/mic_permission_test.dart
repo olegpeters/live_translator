@@ -32,6 +32,7 @@ class _NoConnectService extends SonioxRealtimeTranslationService {
     String? sourceLanguage,
     Glossary glossary = const Glossary(),
     SonioxRegion? region,
+    bool speechEnabled = true,
   }) async => connected = true;
 }
 

@@ -51,6 +51,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get homeClearText => 'Borrar texto';
 
   @override
+  String get homeSpeechToggle => 'Voz alta';
+
+  @override
+  String get homeSpeechOnTooltip =>
+      'Lectura activada: toca para ver solo el texto';
+
+  @override
+  String get homeSpeechOffTooltip =>
+      'Leer la traducción en voz alta (auriculares)';
+
+  @override
   String get homeTranscriptPlaceholder =>
       'Las frases traducidas aparecen aquí en directo durante la charla...';
 

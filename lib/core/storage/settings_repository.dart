@@ -19,6 +19,7 @@ class SettingsRepository {
   static const String _keyGlossaryPreset = 'glossary_preset';
   static const String _keySonioxRegion = 'soniox_region';
   static const String _keyDebugMode = 'debug_mode';
+  static const String _keySpeechEnabled = 'speech_enabled';
 
   /// Bundled glossary presets by id ('' = none, the default).
   static const Map<String, String> glossaryPresetAssets = {
@@ -171,6 +172,17 @@ class SettingsRepository {
   Future<void> setSourceLanguage(String code) async {
     await init();
     await _prefs?.setString(_keySourceLanguage, code);
+  }
+
+  /// Whether the translation is read aloud (Soniox TTS); off by default (text only).
+  Future<bool> getSpeechEnabled() async {
+    await init();
+    return _prefs?.getBool(_keySpeechEnabled) ?? false;
+  }
+
+  Future<void> setSpeechEnabled(bool enabled) async {
+    await init();
+    await _prefs?.setBool(_keySpeechEnabled, enabled);
   }
 
   /// Glossary lines (see `Glossary.parse`).

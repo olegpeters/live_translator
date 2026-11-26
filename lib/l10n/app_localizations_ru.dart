@@ -51,6 +51,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeClearText => 'Очистить текст';
 
   @override
+  String get homeSpeechToggle => 'Озвучка';
+
+  @override
+  String get homeSpeechOnTooltip =>
+      'Озвучка включена: нажмите, чтобы оставить только текст';
+
+  @override
+  String get homeSpeechOffTooltip => 'Озвучивать перевод (наушники)';
+
+  @override
   String get homeTranscriptPlaceholder =>
       'Здесь в реальном времени появляются переведённые предложения...';
 
